@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meshtastic Channel URL Decoder</title>
+    <title>Meshtastic URL Decoder</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -222,30 +222,227 @@
         .copy-button:hover {
             background-color: #219a52;
         }
+        
+        /* Tab Navigation Styles */
+        .tab-nav {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            background-color: transparent;
+            color: #7f8c8d;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab-btn:hover {
+            color: #3498db;
+            background-color: #f8f9fa;
+        }
+        
+        .tab-btn.active {
+            color: #3498db;
+            border-bottom-color: #3498db;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Upload Area Styles */
+        .upload-area {
+            border: 3px dashed #bdc3c7;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 20px;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .upload-area:hover {
+            border-color: #3498db;
+            background-color: #f8f9fa;
+        }
+        
+        .upload-area.dragover {
+            border-color: #27ae60;
+            background-color: #d5f4e6;
+        }
+        
+        .upload-content {
+            pointer-events: none;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .upload-area h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        
+        .upload-area p {
+            color: #7f8c8d;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .upload-formats {
+            color: #95a5a6;
+            font-size: 12px;
+            font-style: italic;
+        }
+        
+        .upload-progress {
+            margin-top: 20px;
+        }
+        
+        .progress-bar {
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            background-color: #3498db;
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        /* QR Results Styles */
+        .qr-results {
+            margin-top: 20px;
+        }
+        
+        .qr-item {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .qr-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .qr-type {
+            background-color: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .qr-meshtastic {
+            background-color: #27ae60;
+        }
+        
+        .qr-data {
+            font-family: monospace;
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            word-break: break-all;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .decode-qr-btn {
+            background-color: #f39c12;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .decode-qr-btn:hover {
+            background-color: #e67e22;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🌐 Meshtastic Channel URL Decoder</h1>
-        <p class="subtitle">Decode Meshtastic channel URLs and view their protobuf contents</p>
+        <h1>🌐 Meshtastic URL Decoder</h1>
+        <p class="subtitle">Decode Meshtastic URLs from text input or QR code images</p>
         
-        <div class="input-group">
-            <label for="url-input">Meshtastic Channel URL:</label>
-            <input type="url" id="url-input" placeholder="https://meshtastic.org/e/#CgMSAQo..." />
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="url-tab">📝 Enter URL</button>
+            <button class="tab-btn" data-tab="qr-tab">📱 Upload QR Code</button>
         </div>
         
-        <div class="button-group">
-            <button id="decode-btn">🔍 Decode Channel</button>
-            <button id="clear-btn">🗑️ Clear</button>
+        <!-- URL Input Tab -->
+        <div id="url-tab" class="tab-content active">
+            <div class="input-group">
+                <label for="url-input">Meshtastic URL:</label>
+                <input type="url" id="url-input" placeholder="https://meshtastic.org/e/#CgMSAQo..." />
+            </div>
+            
+            <div class="button-group">
+                <button id="decode-btn">🔍 Decode URL</button>
+                <button id="clear-btn">🗑️ Clear</button>
+            </div>
         </div>
         
-        <div class="example">
-            <div class="example-title">Example URL Format:</div>
-            <div class="example-url">https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE</div>
+        <!-- QR Code Upload Tab -->
+        <div id="qr-tab" class="tab-content">
+            <div class="upload-area" id="upload-area">
+                <div class="upload-content">
+                    <div class="upload-icon">📷</div>
+                    <h3>Drop QR code image here</h3>
+                    <p>or click to select a file</p>
+                    <input type="file" id="file-input" accept="image/*" style="display: none;">
+                    <div class="upload-formats">Supports: JPG, PNG, GIF, BMP, WebP</div>
+                </div>
+                <div class="upload-progress" id="upload-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-text" id="progress-text">Processing...</div>
+                </div>
+            </div>
+            
+            <div class="qr-results" id="qr-results" style="display: none;"></div>
         </div>
         
         <div class="loading" id="loading">
-            <p>🔄 Decoding channel URL...</p>
+            <p>🔄 Decoding URL...</p>
         </div>
         
         <div class="result" id="result">
@@ -274,7 +471,7 @@
             const url = urlInput.value.trim();
             
             if (!url) {
-                alert('Please enter a Meshtastic channel URL');
+                alert('Please enter a Meshtastic URL');
                 return;
             }
             
@@ -318,7 +515,7 @@
 
         function createSuccessHTML(data) {
             let html = '<div class="success">';
-            html += '<h3>✅ Successfully Decoded Channel</h3>';
+            html += '<h3>✅ Successfully Decoded</h3>';
             
             // Create channel summaries
             if (data.type === 'ChannelSet' && data.channels) {
@@ -409,6 +606,240 @@
             });
         }
 
+        // Tab functionality
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetTab = btn.getAttribute('data-tab');
+                const currentActiveTab = document.querySelector('.tab-btn.active').getAttribute('data-tab');
+                
+                // Don't do anything if clicking the already active tab
+                if (targetTab === currentActiveTab) {
+                    return;
+                }
+                
+                // Clear QR results when switching away from QR tab
+                if (currentActiveTab === 'qr-tab') {
+                    clearQRResults();
+                }
+                
+                // Remove active class from all tabs and content
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding content
+                btn.classList.add('active');
+                document.getElementById(targetTab).classList.add('active');
+            });
+        });
+        
+        // QR Code upload functionality
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const uploadProgress = document.getElementById('upload-progress');
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const qrResults = document.getElementById('qr-results');
+        
+        // Click to upload
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                uploadFile(file);
+            }
+        });
+        
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                uploadFile(files[0]);
+            }
+        });
+        
+        async function uploadFile(file) {
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Please upload a valid image file (JPG, PNG, GIF, BMP, WebP)');
+                return;
+            }
+            
+            // Check file size (10MB max)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File size must be less than 10MB');
+                return;
+            }
+            
+            // Show progress
+            document.querySelector('.upload-content').style.display = 'none';
+            uploadProgress.style.display = 'block';
+            progressFill.style.width = '0%';
+            progressText.textContent = 'Uploading...';
+            qrResults.style.display = 'none';
+            result.style.display = 'none';
+            
+            // Simulate upload progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 30;
+                if (progress > 90) {
+                    progress = 90;
+                    clearInterval(progressInterval);
+                }
+                progressFill.style.width = progress + '%';
+            }, 100);
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch('/upload_qr', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                // Complete progress
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+                progressText.textContent = 'Processing complete!';
+                
+                setTimeout(() => {
+                    uploadProgress.style.display = 'none';
+                    document.querySelector('.upload-content').style.display = 'block';
+                    displayQRResults(data);
+                }, 1000);
+                
+            } catch (error) {
+                clearInterval(progressInterval);
+                uploadProgress.style.display = 'none';
+                document.querySelector('.upload-content').style.display = 'block';
+                
+                displayResult({
+                    success: false,
+                    error: 'Upload failed: ' + error.message
+                });
+            }
+        }
+        
+        function displayQRResults(data) {
+            if (!data.success) {
+                displayResult(data);
+                return;
+            }
+            
+            let html = '';
+            
+            if (data.qr_codes && data.qr_codes.length > 0) {
+                html += `<h3>🔍 Found ${data.total_qr_codes} QR Code(s)</h3>`;
+                
+                if (data.meshtastic_count > 0) {
+                    html += `<p>✅ ${data.meshtastic_count} Meshtastic URL(s) detected and decoded automatically!</p>`;
+                }
+                
+                data.qr_codes.forEach((qr, index) => {
+                    html += '<div class="qr-item">';
+                    html += '<div class="qr-header">';
+                    html += `<span class="qr-type ${qr.is_meshtastic ? 'qr-meshtastic' : ''}">${qr.type}</span>`;
+                    if (qr.is_meshtastic) {
+                        html += '<span style="color: #27ae60; font-weight: 600;">🌐 Meshtastic URL</span>';
+                    }
+                    html += '</div>';
+                    
+                    html += `<div class="qr-data">${qr.data}</div>`;
+                    
+                    if (qr.is_meshtastic) {
+                        html += `<button class="decode-qr-btn" onclick="showQRDetails('${qr.data.replace(/'/g, "\\'")}')">🔍 View in URL Tab</button>`;
+                    }
+                    
+                    html += '</div>';
+                });
+                
+                // If we have decoded results, show them
+                if (data.decoded_results && data.decoded_results.length > 0) {
+                    html += '<h3>📊 Decoded Results</h3>';
+                    data.decoded_results.forEach((result, index) => {
+                        html += '<div class="result-json">';
+                        html += `<strong>URL ${index + 1}:</strong> ${result.url}`;
+                        html += `<button class="copy-button" onclick="copyToClipboard('${JSON.stringify(result.decoded, null, 2).replace(/'/g, "\\'")}')">📋 Copy JSON</button>`;
+                        html += `<pre>${JSON.stringify(result.decoded, null, 2)}</pre>`;
+                        html += '</div>';
+                    });
+                }
+                
+                // Store decoded results globally for the View Details buttons
+                window.qrDecodedResults = data.decoded_results || [];
+            } else {
+                html = '<div class="error">';
+                html += '<h3>❌ No QR Codes Found</h3>';
+                html += '<p>No QR codes were detected in the uploaded image. Please make sure:</p>';
+                html += '<ul>';
+                html += '<li>The QR code is clearly visible and not blurry</li>';
+                html += '<li>The image has good lighting and contrast</li>';
+                html += '<li>The QR code is not too small in the image</li>';
+                html += '</ul>';
+                html += '</div>';
+            }
+            
+            qrResults.innerHTML = html;
+            qrResults.style.display = 'block';
+        }
+        
+        function showQRDetails(url) {
+            // Find the corresponding decoded result
+            const decodedResult = window.qrDecodedResults?.find(result => result.url === url);
+            
+            if (decodedResult) {
+                // Switch to URL tab and display the already decoded data
+                document.querySelector('[data-tab="url-tab"]').click();
+                urlInput.value = url;
+                displayResult(decodedResult.decoded);
+            } else {
+                // Fallback: decode the URL if we don't have cached results
+                document.querySelector('[data-tab="url-tab"]').click();
+                urlInput.value = url;
+                decodeURL();
+            }
+        }
+        
+        function clearQRResults() {
+            // Clear the QR results display
+            qrResults.innerHTML = '';
+            qrResults.style.display = 'none';
+            
+            // Clear the file input
+            fileInput.value = '';
+            
+            // Reset upload area state
+            document.querySelector('.upload-content').style.display = 'block';
+            uploadProgress.style.display = 'none';
+            
+            // Clear stored decoded results
+            window.qrDecodedResults = [];
+        }
+        
         // Focus on input when page loads
         window.addEventListener('load', () => {
             urlInput.focus();

@@ -6,13 +6,18 @@ A Flask web application that decodes Meshtastic channel URLs and their encoded p
 
 import base64
 import json
+import io
 from urllib.parse import urlparse, parse_qs
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from flask import Flask, render_template, request, jsonify
 from meshtastic import channel_pb2, apponly_pb2, mesh_pb2
 from google.protobuf.message import DecodeError
 from google.protobuf.json_format import MessageToDict
+from PIL import Image
+from pyzbar import pyzbar
+import cv2
+import numpy as np
 
 app = Flask(__name__)
 
@@ -250,8 +255,157 @@ class MeshtasticDecoder:
         # Channel should have settings, role, or index
         return bool(data.get('settings') or data.get('role') is not None or data.get('index') is not None)
 
-# Initialize decoder
+class QRCodeProcessor:
+    """Handles QR code image processing to extract URLs"""
+    
+    def process_qr_image(self, image_data: bytes) -> Dict[str, Any]:
+        """
+        Process an uploaded image to extract QR codes
+        
+        Args:
+            image_data: Raw image bytes
+            
+        Returns:
+            Dictionary containing extracted URLs and processing info
+        """
+        try:
+            # Load image using PIL
+            image = Image.open(io.BytesIO(image_data))
+            
+            # Convert to RGB if necessary
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            # Try to decode QR codes using pyzbar
+            qr_codes = pyzbar.decode(image)
+            
+            if qr_codes:
+                return self._process_detected_qr_codes(qr_codes)
+            
+            # If no QR codes found with pyzbar, try OpenCV preprocessing
+            return self._try_opencv_preprocessing(image_data)
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to process image: {str(e)}',
+                'qr_codes': []
+            }
+    
+    def _process_detected_qr_codes(self, qr_codes: List) -> Dict[str, Any]:
+        """Process detected QR codes and extract URLs"""
+        results = []
+        meshtastic_urls = []
+        
+        for qr in qr_codes:
+            qr_data = qr.data.decode('utf-8')
+            
+            result = {
+                'type': qr.type,
+                'data': qr_data,
+                'rect': {
+                    'x': qr.rect.left,
+                    'y': qr.rect.top, 
+                    'width': qr.rect.width,
+                    'height': qr.rect.height
+                }
+            }
+            
+            # Check if this looks like a Meshtastic URL
+            if self._is_meshtastic_url(qr_data):
+                result['is_meshtastic'] = True
+                meshtastic_urls.append(qr_data)
+            else:
+                result['is_meshtastic'] = False
+            
+            results.append(result)
+        
+        return {
+            'success': True,
+            'qr_codes': results,
+            'meshtastic_urls': meshtastic_urls,
+            'total_qr_codes': len(qr_codes),
+            'meshtastic_count': len(meshtastic_urls)
+        }
+    
+    def _try_opencv_preprocessing(self, image_data: bytes) -> Dict[str, Any]:
+        """Try OpenCV preprocessing to enhance QR code detection"""
+        try:
+            # Convert to numpy array for OpenCV
+            nparr = np.frombuffer(image_data, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+            if img is None:
+                raise ValueError("Could not decode image with OpenCV")
+            
+            # Try different preprocessing techniques
+            preprocessed_images = self._preprocess_image(img)
+            
+            for processed_img in preprocessed_images:
+                # Convert back to PIL Image
+                pil_img = Image.fromarray(cv2.cvtColor(processed_img, cv2.COLOR_BGR2RGB))
+                
+                # Try to decode QR codes
+                qr_codes = pyzbar.decode(pil_img)
+                if qr_codes:
+                    return self._process_detected_qr_codes(qr_codes)
+            
+            # No QR codes found even with preprocessing
+            return {
+                'success': False,
+                'error': 'No QR codes detected in image',
+                'qr_codes': [],
+                'tried_preprocessing': True
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'OpenCV preprocessing failed: {str(e)}',
+                'qr_codes': []
+            }
+    
+    def _preprocess_image(self, img):
+        """Apply various preprocessing techniques to enhance QR code detection"""
+        processed_images = []
+        
+        # Original image
+        processed_images.append(img.copy())
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Gaussian blur
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        processed_images.append(cv2.cvtColor(blurred, cv2.COLOR_GRAY2BGR))
+        
+        # Thresholding
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        processed_images.append(cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR))
+        
+        # Adaptive thresholding
+        adaptive_thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+        processed_images.append(cv2.cvtColor(adaptive_thresh, cv2.COLOR_GRAY2BGR))
+        
+        # Sharpen the image
+        kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+        sharpened = cv2.filter2D(gray, -1, kernel)
+        processed_images.append(cv2.cvtColor(sharpened, cv2.COLOR_GRAY2BGR))
+        
+        return processed_images
+    
+    def _is_meshtastic_url(self, url: str) -> bool:
+        """Check if a URL looks like a Meshtastic URL"""
+        url_lower = url.lower()
+        return (
+            'meshtastic.org' in url_lower or
+            ('/e/#' in url_lower and len(url) > 30) or
+            ('/v/#' in url_lower and len(url) > 30)
+        )
+
+# Initialize decoder and QR processor
 decoder = MeshtasticDecoder()
+qr_processor = QRCodeProcessor()
 
 @app.route('/')
 def index():
@@ -272,6 +426,60 @@ def decode_url():
     
     result = decoder.decode_channel_url(url)
     return jsonify(result)
+
+@app.route('/upload_qr', methods=['POST'])
+def upload_qr():
+    """API endpoint to upload and process QR code images"""
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected'}), 400
+    
+    # Check file type
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
+    if not ('.' in file.filename and 
+            file.filename.rsplit('.', 1)[1].lower() in allowed_extensions):
+        return jsonify({
+            'success': False, 
+            'error': 'Invalid file type. Please upload an image file.'
+        }), 400
+    
+    try:
+        # Read the image data
+        image_data = file.read()
+        
+        # Check file size (max 10MB)
+        max_size = 10 * 1024 * 1024  # 10MB
+        if len(image_data) > max_size:
+            return jsonify({
+                'success': False,
+                'error': 'File too large. Maximum size is 10MB.'
+            }), 400
+        
+        # Process the QR codes
+        qr_result = qr_processor.process_qr_image(image_data)
+        
+        # If we found Meshtastic URLs, decode them
+        if qr_result.get('success') and qr_result.get('meshtastic_urls'):
+            decoded_results = []
+            for url in qr_result['meshtastic_urls']:
+                decode_result = decoder.decode_channel_url(url)
+                decoded_results.append({
+                    'url': url,
+                    'decoded': decode_result
+                })
+            
+            qr_result['decoded_results'] = decoded_results
+        
+        return jsonify(qr_result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to process uploaded file: {str(e)}'
+        }), 500
 
 @app.route('/health')
 def health():
