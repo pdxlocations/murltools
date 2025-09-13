@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meshtastic URL Decoder</title>
+    <title>Meshtastic URL Encoder/Decoder</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -57,6 +57,82 @@
         input[type="url"]:focus {
             outline: none;
             border-color: #3498db;
+        }
+        
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease;
+        }
+        
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        #encode-btn {
+            background-color: #e74c3c;
+            color: white;
+        }
+        
+        #encode-btn:hover {
+            background-color: #c0392b;
+        }
+        
+        #encode-btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        #clear-encode-btn {
+            background-color: #95a5a6;
+            color: white;
+        }
+        
+        #clear-encode-btn:hover {
+            background-color: #7f8c8d;
+        }
+        
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease;
+        }
+        
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        #encode-btn {
+            background-color: #e74c3c;
+            color: white;
+        }
+        
+        #encode-btn:hover {
+            background-color: #c0392b;
+        }
+        
+        #encode-btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        #clear-encode-btn {
+            background-color: #95a5a6;
+            color: white;
+        }
+        
+        #clear-encode-btn:hover {
+            background-color: #7f8c8d;
         }
         
         .button-group {
@@ -398,13 +474,14 @@
 </head>
 <body>
     <div class="container">
-        <h1>🌐 Meshtastic URL Decoder</h1>
-        <p class="subtitle">Decode Meshtastic URLs from text input or QR code images</p>
+        <h1>🌐 Meshtastic URL Tools</h1>
+        <p class="subtitle">Decode Meshtastic URLs from text or QR codes, or create new URLs with custom settings</p>
         
         <!-- Tab Navigation -->
         <div class="tab-nav">
-            <button class="tab-btn active" data-tab="url-tab">📝 Enter URL</button>
+            <button class="tab-btn active" data-tab="url-tab">📝 Decode URL</button>
             <button class="tab-btn" data-tab="qr-tab">📱 Upload QR Code</button>
+            <button class="tab-btn" data-tab="encode-tab">🔧 Create URL</button>
         </div>
         
         <!-- URL Input Tab -->
@@ -441,6 +518,231 @@
             <div class="qr-results" id="qr-results" style="display: none;"></div>
         </div>
         
+        <!-- Encoding Tab -->
+        <div id="encode-tab" class="tab-content">
+            <div class="input-group">
+                <h3>📡 Multi-Channel Configuration</h3>
+                <p>Create a Meshtastic URL with up to 8 channels. Channel 0 is Primary, channels 1-7 are Secondary.</p>
+            </div>
+            
+            <div class="input-group">
+                <label for="num-channels">Number of Channels:</label>
+                <select id="num-channels">
+                    <option value="1" selected>1 Channel</option>
+                    <option value="2">2 Channels</option>
+                    <option value="3">3 Channels</option>
+                    <option value="4">4 Channels</option>
+                    <option value="5">5 Channels</option>
+                    <option value="6">6 Channels</option>
+                    <option value="7">7 Channels</option>
+                    <option value="8">8 Channels</option>
+                </select>
+            </div>
+            
+            <div id="channels-container">
+                <!-- Channel forms will be dynamically generated here -->
+            </div>
+            
+            
+            <div class="input-group">
+                <label>
+                    <input type="checkbox" id="use-lora-presets" /> Use LoRa Presets (applies to all channels)
+                </label>
+                <small style="color: #7f8c8d; font-size: 12px;">Enable to use predefined LoRa settings for all channels. Leave unchecked to configure manually.</small>
+            </div>
+            
+            <div id="lora-presets-section" class="input-group" style="display: none;">
+                <label for="lora-preset">LoRa Preset:</label>
+                <select id="lora-preset">
+                    <option value="LONG_FAST" selected>LongFast (Default)</option>
+                    <option value="LONG_SLOW">LongSlow</option>
+                    <option value="VERY_LONG_SLOW">VeryLongSlow</option>
+                    <option value="MEDIUM_SLOW">MediumSlow</option>
+                    <option value="MEDIUM_FAST">MediumFast</option>
+                    <option value="SHORT_SLOW">ShortSlow</option>
+                    <option value="SHORT_FAST">ShortFast</option>
+                    <option value="LONG_MODERATE">LongModerate</option>
+                    <option value="SHORT_TURBO">ShortTurbo</option>
+                </select>
+                <small style="color: #7f8c8d; font-size: 12px;">Controls radio modulation parameters (bandwidth, spread factor, coding rate)</small>
+                
+                <h5 style="margin: 20px 0 10px 0; color: #34495e;">Operational Settings</h5>
+                
+                <div class="input-group">
+                    <label for="preset-hop-limit">Hop Limit:</label>
+                    <input type="number" id="preset-hop-limit" value="3" min="0" max="7" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Maximum number of hops (0-7)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="preset-tx-power">TX Power (dBm):</label>
+                    <input type="number" id="preset-tx-power" min="0" max="30" value="20" step="1" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Transmit power in dBm (0-30)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="preset-tx-enabled" checked /> Transmit Enabled
+                    </label>
+                    <small style="color: #7f8c8d; font-size: 12px;">Enable transmission (uncheck for receive-only mode)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="preset-rx-boosted-gain" /> RX Boosted Gain (SX126x)
+                    </label>
+                    <small style="color: #7f8c8d; font-size: 12px;">Boost receive sensitivity for SX126x radios</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="preset-region">Region:</label>
+                    <select id="preset-region">
+                        <option value="US" selected>US (902-928 MHz)</option>
+                        <option value="EU_433">EU 433 MHz (433.05-434.79 MHz)</option>
+                        <option value="EU_868">EU 868 MHz (863-870 MHz)</option>
+                        <option value="CN">China (470-510 MHz)</option>
+                        <option value="JP">Japan (920-923 MHz)</option>
+                        <option value="ANZ">Australia/NZ (915-928 MHz)</option>
+                        <option value="KR">Korea (920-923 MHz)</option>
+                        <option value="TW">Taiwan (920-925 MHz)</option>
+                        <option value="RU">Russia (868-870 MHz)</option>
+                        <option value="IN">India (865-867 MHz)</option>
+                        <option value="NZ_865">NZ 865 MHz (864-868 MHz)</option>
+                        <option value="TH">Thailand (920-925 MHz)</option>
+                        <option value="LORA_24">LoRa 2.4 GHz (2400-2483.5 MHz)</option>
+                        <option value="UA_433">Ukraine 433 MHz (433.05-434.79 MHz)</option>
+                        <option value="UA_868">Ukraine 868 MHz (863-870 MHz)</option>
+                    </select>
+                    <small style="color: #7f8c8d; font-size: 12px;">Select the regulatory region for frequency compliance</small>
+                </div>
+            </div>
+            
+            <div id="lora-advanced-section" class="input-group">
+                <h4>Advanced LoRa Settings (applies to all channels)</h4>
+                
+                <div class="input-group">
+                    <label for="modem-preset">Modem Preset:</label>
+                    <select id="modem-preset">
+                        <option value="LONG_FAST" selected>LongFast</option>
+                        <option value="LONG_SLOW">LongSlow</option>
+                        <option value="VERY_LONG_SLOW">VeryLongSlow</option>
+                        <option value="MEDIUM_SLOW">MediumSlow</option>
+                        <option value="MEDIUM_FAST">MediumFast</option>
+                        <option value="SHORT_SLOW">ShortSlow</option>
+                        <option value="SHORT_FAST">ShortFast</option>
+                        <option value="LONG_MODERATE">LongModerate</option>
+                        <option value="SHORT_TURBO">ShortTurbo</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="bandwidth">Bandwidth (kHz):</label>
+                    <select id="bandwidth">
+                        <option value="31.25">31.25</option>
+                        <option value="62.5">62.5</option>
+                        <option value="125">125</option>
+                        <option value="250" selected>250</option>
+                        <option value="500">500</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="spread-factor">Spread Factor:</label>
+                    <select id="spread-factor">
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="11" selected>11</option>
+                        <option value="12">12</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="coding-rate">Coding Rate:</label>
+                    <select id="coding-rate">
+                        <option value="5" selected>4/5</option>
+                        <option value="6">4/6</option>
+                        <option value="7">4/7</option>
+                        <option value="8">4/8</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="frequency-offset">Frequency Offset:</label>
+                    <input type="number" id="frequency-offset" value="0" step="1" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Frequency offset in Hz (typically 0)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="hop-limit">Hop Limit:</label>
+                    <input type="number" id="hop-limit" value="3" min="0" max="7" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Maximum number of hops (0-7)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="override-frequency">Override Frequency (MHz):</label>
+                    <input type="number" id="override-frequency" step="0.001" placeholder="e.g., 915.0 or 868.3" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Override the default frequency for your region (optional)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="tx-enabled" checked /> Transmit Enabled
+                    </label>
+                    <small style="color: #7f8c8d; font-size: 12px;">Enable transmission (uncheck to make this node receive-only)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="rx-boosted-gain" /> RX Boosted Gain (SX126x)
+                    </label>
+                    <small style="color: #7f8c8d; font-size: 12px;">Boost receive sensitivity for SX126x radios (may increase power consumption)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="tx-power">TX Power (dBm):</label>
+                    <input type="number" id="tx-power" min="0" max="30" value="20" step="1" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Transmit power in dBm (0-30, higher values = more range but more power consumption)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="region">Region:</label>
+                    <select id="region">
+                        <option value="US" selected>US (902-928 MHz)</option>
+                        <option value="EU_433">EU 433 MHz (433.05-434.79 MHz)</option>
+                        <option value="EU_868">EU 868 MHz (863-870 MHz)</option>
+                        <option value="CN">China (470-510 MHz)</option>
+                        <option value="JP">Japan (920-923 MHz)</option>
+                        <option value="ANZ">Australia/NZ (915-928 MHz)</option>
+                        <option value="KR">Korea (920-923 MHz)</option>
+                        <option value="TW">Taiwan (920-925 MHz)</option>
+                        <option value="RU">Russia (868-870 MHz)</option>
+                        <option value="IN">India (865-867 MHz)</option>
+                        <option value="NZ_865">NZ 865 MHz (864-868 MHz)</option>
+                        <option value="TH">Thailand (920-925 MHz)</option>
+                        <option value="LORA_24">LoRa 2.4 GHz (2400-2483.5 MHz)</option>
+                        <option value="UA_433">Ukraine 433 MHz (433.05-434.79 MHz)</option>
+                        <option value="UA_868">Ukraine 868 MHz (863-870 MHz)</option>
+                    </select>
+                    <small style="color: #7f8c8d; font-size: 12px;">Select the regulatory region for frequency compliance</small>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button id="encode-btn">🚀 Generate URL & QR Code</button>
+                <button id="clear-encode-btn">🗑️ Clear Form</button>
+            </div>
+            
+            <div class="loading" id="encode-loading" style="display: none;">
+                <p>🔄 Generating URL and QR code...</p>
+            </div>
+            
+            <div class="result" id="encode-result" style="display: none;">
+                <!-- Encoding results will be populated here -->
+            </div>
+        </div>
+        
         <div class="loading" id="loading">
             <p>🔄 Decoding URL...</p>
         </div>
@@ -459,6 +761,26 @@
 
         decodeBtn.addEventListener('click', decodeURL);
         clearBtn.addEventListener('click', clearAll);
+        
+        // Add event delegation for Load Settings buttons (dynamically created)
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('load-settings-btn')) {
+                console.log('Load Settings button clicked!');
+                const configData = e.target.getAttribute('data-config');
+                if (configData) {
+                    try {
+                        const decodedData = JSON.parse(atob(configData));
+                        console.log('Decoded data for loading:', decodedData);
+                        loadSettingsFromDecoded(decodedData, e.target);
+                    } catch (error) {
+                        console.error('Error parsing config data:', error);
+                        alert('Error loading settings: ' + error.message);
+                    }
+                } else {
+                    console.error('No config data found on button');
+                }
+            }
+        });
         
         // Allow Enter key to trigger decode
         urlInput.addEventListener('keypress', function(e) {
@@ -526,11 +848,15 @@
                 html += createChannelSummary(data.channel, 0);
             }
             
-            // Full JSON data
+            // Full JSON data with Load Settings button
             html += '<div class="result-json">';
             html += '<strong>Full Decoded Data:</strong>';
+            html += '<div style="margin-bottom: 10px;">';
             html += '<button class="copy-button" onclick="copyToClipboard(\'' + 
                     JSON.stringify(data, null, 2).replace(/'/g, "\\'") + '\')">📋 Copy JSON</button>';
+            html += '<button class="copy-button load-settings-btn" style="background-color: #f39c12; margin-left: 10px;" data-config="' + 
+                    btoa(JSON.stringify(data)) + '">🔧 Load into Create URL</button>';
+            html += '</div>';
             html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
             html += '</div>';
             
@@ -783,7 +1109,10 @@
                     data.decoded_results.forEach((result, index) => {
                         html += '<div class="result-json">';
                         html += `<strong>URL ${index + 1}:</strong> ${result.url}`;
+                        html += '<div style="margin: 10px 0;">';
                         html += `<button class="copy-button" onclick="copyToClipboard('${JSON.stringify(result.decoded, null, 2).replace(/'/g, "\\'")}')">📋 Copy JSON</button>`;
+                        html += `<button class="copy-button load-settings-btn" style="background-color: #f39c12; margin-left: 10px;" data-config="${btoa(JSON.stringify(result.decoded))}">🔧 Load Settings</button>`;
+                        html += '</div>';
                         html += `<pre>${JSON.stringify(result.decoded, null, 2)}</pre>`;
                         html += '</div>';
                     });
@@ -838,6 +1167,725 @@
             
             // Clear stored decoded results
             window.qrDecodedResults = [];
+        }
+        
+        // Multi-channel encoding functionality
+        const numChannelsSelect = document.getElementById('num-channels');
+        const channelsContainer = document.getElementById('channels-container');
+        const useLoraPresetsCheckbox = document.getElementById('use-lora-presets');
+        const loraPresetsSection = document.getElementById('lora-presets-section');
+        const loraAdvancedSection = document.getElementById('lora-advanced-section');
+        const encodeBtn = document.getElementById('encode-btn');
+        const clearEncodeBtn = document.getElementById('clear-encode-btn');
+        const encodeLoading = document.getElementById('encode-loading');
+        const encodeResult = document.getElementById('encode-result');
+        
+        // Initialize with 1 channel
+        generateChannelForms(1);
+        
+        // Handle number of channels change
+        numChannelsSelect.addEventListener('change', () => {
+            const numChannels = parseInt(numChannelsSelect.value);
+            generateChannelForms(numChannels);
+        });
+        
+        // Toggle LoRa presets visibility
+        useLoraPresetsCheckbox.addEventListener('change', () => {
+            if (useLoraPresetsCheckbox.checked) {
+                loraPresetsSection.style.display = 'block';
+                loraAdvancedSection.style.display = 'none';
+            } else {
+                loraPresetsSection.style.display = 'none';
+                loraAdvancedSection.style.display = 'block';
+            }
+        });
+        
+        encodeBtn.addEventListener('click', encodeChannels);
+        clearEncodeBtn.addEventListener('click', clearEncodeForm);
+        
+        function generateChannelForms(numChannels) {
+            channelsContainer.innerHTML = '';
+            
+            for (let i = 0; i < numChannels; i++) {
+                const channelDiv = document.createElement('div');
+                channelDiv.className = 'input-group';
+                channelDiv.style.border = '1px solid #e0e0e0';
+                channelDiv.style.borderRadius = '6px';
+                channelDiv.style.padding = '15px';
+                channelDiv.style.marginBottom = '15px';
+                
+                const role = i === 0 ? 'Primary' : 'Secondary';
+                const roleClass = i === 0 ? 'primary' : 'secondary';
+                
+                channelDiv.innerHTML = `
+                    <h4 style="margin: 0 0 15px 0; color: ${i === 0 ? '#e67e22' : '#3498db'};">📡 Channel ${i} (${role})</h4>
+                    
+                    <div class="input-group">
+                        <label for="channel-${i}-name">Channel Name:</label>
+                        <input type="text" id="channel-${i}-name" placeholder="${i === 0 ? 'Primary Channel' : 'Secondary Channel ' + i}" maxlength="11" />
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="channel-${i}-psk">Pre-Shared Key (PSK):</label>
+                        <input type="text" id="channel-${i}-psk" placeholder="Leave empty for default key or enter hex (0x...) or base64" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Format: hex (0x1234abcd...) or base64 (AQIDBAUGBwgJ...). Leave empty for default key.</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="channel-${i}-precision">Position Precision (bits):</label>
+                        <select id="channel-${i}-precision">
+                            <option value="1">1 - Very low precision (~10,000+ km)</option>
+                            <option value="2">2 - Extremely low (~5,000 km)</option>
+                            <option value="3">3 - Very low (~2,500 km)</option>
+                            <option value="4">4 - Low (~1,250 km)</option>
+                            <option value="5">5 - Low (~625 km)</option>
+                            <option value="6">6 - Medium-low (~312 km)</option>
+                            <option value="7">7 - Medium-low (~156 km)</option>
+                            <option value="8">8 - Medium (~78 km)</option>
+                            <option value="9">9 - Medium (~39 km)</option>
+                            <option value="10">10 - Medium (~19 km)</option>
+                            <option value="11">11 - Medium-high (~10 km)</option>
+                            <option value="12">12 - Medium-high (~5 km)</option>
+                            <option value="13">13 - High (~2.5 km)</option>
+                            <option value="14">14 - High (~1.2 km)</option>
+                            <option value="15">15 - High (~610 m)</option>
+                            <option value="16">16 - Very high (~305 m)</option>
+                            <option value="17">17 - Very high (~152 m)</option>
+                            <option value="18">18 - Very high (~76 m)</option>
+                            <option value="19">19 - Extremely high (~38 m)</option>
+                            <option value="20">20 - Extremely high (~19 m)</option>
+                            <option value="21">21 - Extremely high (~10 m)</option>
+                            <option value="22">22 - Ultra high (~5 m)</option>
+                            <option value="23">23 - Ultra high (~2.4 m)</option>
+                            <option value="24">24 - Ultra high (~1.2 m)</option>
+                            <option value="25">25 - Maximum (~60 cm)</option>
+                            <option value="26">26 - Maximum (~30 cm)</option>
+                            <option value="27">27 - Maximum (~15 cm)</option>
+                            <option value="28">28 - Maximum (~7 cm)</option>
+                            <option value="29">29 - Maximum (~4 cm)</option>
+                            <option value="30">30 - Maximum (~2 cm)</option>
+                            <option value="31">31 - Maximum (~1 cm)</option>
+                            <option value="32" selected>32 - Full precision (~0.5 cm)</option>
+                        </select>
+                        <small style="color: #7f8c8d; font-size: 12px;">Bits of precision for location sharing (1-32). Higher values = more precise but less private.</small>
+                    </div>
+                    
+                    <input type="hidden" id="channel-${i}-role" value="${roleClass}" />
+                `;
+                
+                channelsContainer.appendChild(channelDiv);
+            }
+        }
+        
+        async function encodeChannels() {
+            const numChannels = parseInt(numChannelsSelect.value);
+            const channels = [];
+            
+            // Collect all channel data
+            for (let i = 0; i < numChannels; i++) {
+                const name = document.getElementById(`channel-${i}-name`).value.trim();
+                const psk = document.getElementById(`channel-${i}-psk`).value.trim();
+                const role = document.getElementById(`channel-${i}-role`).value;
+                const positionPrecision = parseInt(document.getElementById(`channel-${i}-precision`).value);
+                
+                channels.push({
+                    name: name || (i === 0 ? 'Primary Channel' : `Secondary Channel ${i}`),
+                    psk: psk,
+                    role: role,
+                    module_settings: {
+                        position_precision: positionPrecision
+                    }
+                });
+            }
+            
+            // Collect LoRa configuration
+            let loraConfig = null;
+            
+            if (useLoraPresetsCheckbox.checked) {
+                const preset = document.getElementById('lora-preset').value;
+                const presetHopLimit = parseInt(document.getElementById('preset-hop-limit').value);
+                const presetTxPower = parseInt(document.getElementById('preset-tx-power').value);
+                const presetTxEnabled = document.getElementById('preset-tx-enabled').checked;
+                const presetRxBoostedGain = document.getElementById('preset-rx-boosted-gain').checked;
+                const presetRegion = document.getElementById('preset-region').value;
+                
+                loraConfig = {
+                    use_preset: true,
+                    modem_preset: preset,
+                    hop_limit: presetHopLimit,
+                    tx_power: presetTxPower,
+                    tx_enabled: presetTxEnabled,
+                    sx126x_rx_boosted_gain: presetRxBoostedGain,
+                    region: presetRegion
+                };
+            } else {
+                // Collect manual settings
+                const modemPreset = document.getElementById('modem-preset').value;
+                const bandwidth = parseFloat(document.getElementById('bandwidth').value);
+                const spreadFactor = parseInt(document.getElementById('spread-factor').value);
+                const codingRate = parseInt(document.getElementById('coding-rate').value);
+                const frequencyOffset = parseFloat(document.getElementById('frequency-offset').value);
+                const hopLimit = parseInt(document.getElementById('hop-limit').value);
+                const overrideFrequency = parseFloat(document.getElementById('override-frequency').value);
+                const txEnabled = document.getElementById('tx-enabled').checked;
+                const rxBoostedGain = document.getElementById('rx-boosted-gain').checked;
+                const txPower = parseInt(document.getElementById('tx-power').value);
+                const region = document.getElementById('region').value;
+                
+                loraConfig = {
+                    use_preset: false,
+                    modem_preset: modemPreset,
+                    bandwidth: bandwidth,
+                    spread_factor: spreadFactor,
+                    coding_rate: codingRate,
+                    frequency_offset: frequencyOffset,
+                    hop_limit: hopLimit,
+                    tx_enabled: txEnabled,
+                    sx126x_rx_boosted_gain: rxBoostedGain,
+                    tx_power: txPower,
+                    region: region
+                };
+                
+                // Add override frequency if provided
+                if (overrideFrequency && !isNaN(overrideFrequency)) {
+                    loraConfig.override_frequency = overrideFrequency;
+                }
+            }
+            
+            const requestData = {
+                channels: channels,
+                lora_config: loraConfig
+            };
+            
+            // Show loading state
+            encodeLoading.style.display = 'block';
+            encodeResult.style.display = 'none';
+            encodeBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/encode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.json();
+                displayEncodeResult(data);
+                
+            } catch (error) {
+                displayEncodeResult({
+                    success: false,
+                    error: 'Network error: ' + error.message
+                });
+            } finally {
+                encodeLoading.style.display = 'none';
+                encodeBtn.disabled = false;
+            }
+        }
+        
+        function displayEncodeResult(data) {
+            encodeResult.style.display = 'block';
+            
+            if (data.success) {
+                encodeResult.innerHTML = createEncodeSuccessHTML(data);
+            } else {
+                encodeResult.innerHTML = createErrorHTML(data);
+            }
+        }
+        
+        function createEncodeSuccessHTML(data) {
+            let html = '<div class="success">';
+            html += '<h3>✅ Successfully Generated</h3>';
+            
+            // URL display
+            html += '<div class="result-json">';
+            html += '<strong>Generated Meshtastic URL:</strong>';
+            html += `<button class="copy-button" onclick="copyToClipboard('${data.url.replace(/'/g, "\\'")}')">📋 Copy URL</button>`;
+            html += `<div class="qr-data">${data.url}</div>`;
+            html += '</div>';
+            
+            // QR Code display
+            if (data.qr_code && data.qr_code.success) {
+                html += '<div class="result-json">';
+                html += '<strong>QR Code:</strong>';
+                html += '<div style="text-align: center; margin: 15px 0;">';
+                html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; max-width: 300px; height: auto;" />`;
+                html += '</div>';
+                html += `<button class="copy-button" onclick="downloadQRCode('${data.qr_code.image_base64}', 'meshtastic-channel.png')">💾 Download QR Code</button>`;
+                html += '</div>';
+            }
+            
+            // Statistics
+            html += '<div class="channel-summary">';
+            html += '<div class="channel-header">Generation Details</div>';
+            html += '<div class="channel-details">';
+            
+            html += '<div class="detail-item">';
+            html += '<div class="detail-label">Encoded Size</div>';
+            html += `<div class="detail-value">${data.encoded_size} bytes</div>`;
+            html += '</div>';
+            
+            if (data.channels_count) {
+                html += '<div class="detail-item">';
+                html += '<div class="detail-label">Channels</div>';
+                html += `<div class="detail-value">${data.channels_count}</div>`;
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            html += '</div>';
+            
+            html += '</div>';
+            return html;
+        }
+        
+        function downloadQRCode(base64Data, filename) {
+            const link = document.createElement('a');
+            link.href = 'data:image/png;base64,' + base64Data;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        function clearEncodeForm() {
+            // Reset number of channels to 1
+            numChannelsSelect.value = '1';
+            generateChannelForms(1);
+            
+            // Reset LoRa settings
+            useLoraPresetsCheckbox.checked = false;
+            loraPresetsSection.style.display = 'none';
+            loraAdvancedSection.style.display = 'block';
+            
+            // Reset preset values
+            document.getElementById('lora-preset').value = 'LONG_FAST';
+            document.getElementById('preset-hop-limit').value = '3';
+            document.getElementById('preset-tx-power').value = '20';
+            document.getElementById('preset-tx-enabled').checked = true;
+            document.getElementById('preset-rx-boosted-gain').checked = false;
+            document.getElementById('preset-region').value = 'US';
+            
+            // Reset advanced settings to defaults
+            document.getElementById('modem-preset').value = 'LONG_FAST';
+            document.getElementById('bandwidth').value = '250';
+            document.getElementById('spread-factor').value = '11';
+            document.getElementById('coding-rate').value = '5';
+            document.getElementById('frequency-offset').value = '0';
+            document.getElementById('hop-limit').value = '3';
+            document.getElementById('override-frequency').value = '';
+            document.getElementById('tx-enabled').checked = true;
+            document.getElementById('rx-boosted-gain').checked = false;
+            document.getElementById('tx-power').value = '20';
+            document.getElementById('region').value = 'US';
+            
+            encodeResult.style.display = 'none';
+            encodeLoading.style.display = 'none';
+        }
+        
+        // Load settings from decoded data into Create URL form
+        function loadSettingsFromDecoded(decodedData, button) {
+            try {
+                console.log('loadSettingsFromDecoded called with:', decodedData);
+                
+                // Show temporary loading message
+                const originalButtonText = button.textContent;
+                button.textContent = '⏳ Loading...';
+                button.disabled = true;
+                
+                // Hide any existing decode results
+                const resultDiv = document.getElementById('result');
+                if (resultDiv) {
+                    resultDiv.style.display = 'none';
+                }
+                
+                const encodeResultDiv = document.getElementById('encode-result');
+                if (encodeResultDiv) {
+                    encodeResultDiv.style.display = 'none';
+                }
+                
+                // Switch to Create URL tab properly
+                const encodeTabBtn = document.querySelector('[data-tab="encode-tab"]');
+                if (encodeTabBtn) {
+                    // Remove active from all tabs
+                    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                    
+                    // Activate encode tab
+                    encodeTabBtn.classList.add('active');
+                    document.getElementById('encode-tab').classList.add('active');
+                }
+                
+                // Extract the configuration data first
+                const config = decodedData.Config || decodedData;
+                console.log('Loading config:', config);
+                
+                // Add a small delay to ensure tab switching is complete
+                setTimeout(() => {
+                    // Clear existing form after tab switch
+                    clearEncodeForm();
+                    
+                    // Handle different data structures
+                    if (config.settings && Array.isArray(config.settings)) {
+                        // ChannelSet format - multiple channels
+                        console.log('Loading multi-channel config');
+                        loadChannelSetSettings(config);
+                    } else if (config.settings && !Array.isArray(config.settings)) {
+                        // Single channel format
+                        console.log('Loading single channel config');
+                        loadSingleChannelSettings(config);
+                    } else {
+                        console.warn('Unrecognized config format:', config);
+                        alert('Unable to load settings from this configuration format.');
+                    }
+                }, 100);
+                
+                // Reset button after a delay
+                setTimeout(() => {
+                    button.textContent = originalButtonText;
+                    button.disabled = false;
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                alert('Error loading settings: ' + error.message);
+                
+                // Reset button on error
+                if (button) {
+                    button.textContent = '🔧 Load into Create URL';
+                    button.disabled = false;
+                }
+            }
+        }
+        
+        function loadChannelSetSettings(config) {
+            const channels = config.settings;
+            const loraConfig = config.lora_config;
+            
+            console.log('loadChannelSetSettings called with', channels.length, 'channels');
+            
+            // Set number of channels
+            const numChannels = channels.length;
+            const numChannelsSelect = document.getElementById('num-channels');
+            if (numChannelsSelect) {
+                numChannelsSelect.value = numChannels.toString();
+                console.log('Set num-channels to:', numChannels);
+            } else {
+                console.error('num-channels select not found!');
+                return; // Exit early if form isn't ready
+            }
+            
+            console.log('Generating channel forms for', numChannels, 'channels');
+            generateChannelForms(numChannels);
+            
+            // Increase delay to ensure DOM is updated before populating
+            setTimeout(() => {
+                console.log('Starting to load channel data after delay');
+                
+                // Verify form elements exist before loading data
+                console.log('Checking if channel forms are generated...');
+                const firstChannelName = document.getElementById('channel-0-name');
+                if (!firstChannelName) {
+                    console.error('Channel forms not ready yet! Retrying...');
+                    // Try again after another delay
+                    setTimeout(() => {
+                        loadChannelSetSettings(config);
+                    }, 300);
+                    return;
+                }
+                
+                console.log('Channel forms are ready, loading data');
+                
+                // Load each channel's settings
+                channels.forEach((channelSettings, index) => {
+                    console.log(`Loading channel ${index}:`, channelSettings);
+                    loadChannelData(channelSettings, index);
+                });
+                
+                // Load LoRa configuration if present
+                if (loraConfig) {
+                    console.log('Loading LoRa config:', loraConfig);
+                    loadLoRaConfig(loraConfig);
+                } else {
+                    console.log('No LoRa config found');
+                }
+                
+                // Show success message
+                console.log('✅ Settings loaded successfully!');
+                
+                // Add a small visual indicator that settings were loaded
+                const channelContainer = document.getElementById('channels-container');
+                if (channelContainer) {
+                    const successMsg = document.createElement('div');
+                    successMsg.style.backgroundColor = '#d4edda';
+                    successMsg.style.border = '1px solid #c3e6cb';
+                    successMsg.style.color = '#155724';
+                    successMsg.style.padding = '10px';
+                    successMsg.style.borderRadius = '6px';
+                    successMsg.style.marginBottom = '15px';
+                    successMsg.innerHTML = '✅ Settings loaded successfully from decoded URL!';
+                    
+                    // Insert at top of container
+                    channelContainer.insertBefore(successMsg, channelContainer.firstChild);
+                    
+                    // Remove after 3 seconds
+                    setTimeout(() => {
+                        if (successMsg.parentNode) {
+                            successMsg.parentNode.removeChild(successMsg);
+                        }
+                    }, 3000);
+                }
+            }, 300); // Increased delay further
+        }
+        
+        function loadSingleChannelSettings(config) {
+            // Set to 1 channel
+            document.getElementById('num-channels').value = '1';
+            generateChannelForms(1);
+            
+            // Small delay to ensure DOM is updated before populating
+            setTimeout(() => {
+                // Load the single channel
+                loadChannelData(config.settings, 0);
+            }, 100);
+        }
+        
+        function loadChannelData(channelSettings, channelIndex) {
+            console.log(`loadChannelData called for channel ${channelIndex}:`, channelSettings);
+            
+            // Load channel name
+            if (channelSettings.name) {
+                const nameField = document.getElementById(`channel-${channelIndex}-name`);
+                console.log(`Looking for name field: channel-${channelIndex}-name`);
+                if (nameField) {
+                    nameField.value = channelSettings.name;
+                    console.log(`Set channel ${channelIndex} name to:`, channelSettings.name);
+                } else {
+                    console.error(`Name field not found: channel-${channelIndex}-name`);
+                }
+            } else {
+                console.log(`Channel ${channelIndex} has no name`);
+            }
+            
+            // Load PSK (keep as base64 format)
+            if (channelSettings.psk) {
+                const pskField = document.getElementById(`channel-${channelIndex}-psk`);
+                if (pskField) {
+                    // Display PSK in base64 format as received
+                    pskField.value = channelSettings.psk;
+                }
+            }
+            
+            // Load position precision from module_settings (or set default)
+            const precisionField = document.getElementById(`channel-${channelIndex}-precision`);
+            if (precisionField) {
+                if (channelSettings.module_settings && channelSettings.module_settings.position_precision !== undefined) {
+                    // Use the precision from decoded data
+                    precisionField.value = channelSettings.module_settings.position_precision.toString();
+                    console.log(`Loaded position precision ${channelSettings.module_settings.position_precision} for channel ${channelIndex}`);
+                } else {
+                    // Set to sensible default precision since it wasn't preserved in encoding
+                    precisionField.value = '32';  // Default to full precision (32 bits)
+                    console.log(`Set default position precision (32) for channel ${channelIndex} - not found in decoded data`);
+                }
+            }
+            
+            // Set channel role if needed (update the hidden field)
+            const roleField = document.getElementById(`channel-${channelIndex}-role`);
+            if (roleField && channelIndex === 0) {
+                roleField.value = 'primary';
+            } else if (roleField) {
+                roleField.value = 'secondary';
+            }
+        }
+        
+        function loadLoRaConfig(loraConfig) {
+            // Check if preset mode should be used
+            // If use_preset is missing, determine based on available fields
+            const shouldUsePreset = loraConfig.use_preset !== undefined ? 
+                loraConfig.use_preset : 
+                !(loraConfig.bandwidth || loraConfig.spread_factor || loraConfig.coding_rate || loraConfig.frequency_offset);
+            
+            if (shouldUsePreset) {
+                document.getElementById('use-lora-presets').checked = true;
+                document.getElementById('lora-presets-section').style.display = 'block';
+                document.getElementById('lora-advanced-section').style.display = 'none';
+                
+                // Load preset settings
+                let presetName = 'LONG_FAST'; // Default preset
+                if (loraConfig.modem_preset !== undefined) {
+                    if (typeof loraConfig.modem_preset === 'string') {
+                        // Already a string name
+                        presetName = loraConfig.modem_preset;
+                    } else {
+                        // Convert from numeric value
+                        const presetMap = {
+                            0: 'LONG_FAST',
+                            1: 'LONG_SLOW', 
+                            2: 'VERY_LONG_SLOW',
+                            3: 'MEDIUM_SLOW',
+                            4: 'MEDIUM_FAST',
+                            5: 'SHORT_SLOW',
+                            6: 'SHORT_FAST',
+                            7: 'LONG_MODERATE',
+                            8: 'SHORT_TURBO'
+                        };
+                        presetName = presetMap[loraConfig.modem_preset] || 'LONG_FAST';
+                    }
+                }
+                console.log('Setting LoRa preset to:', presetName);
+                document.getElementById('lora-preset').value = presetName;
+                
+                if (loraConfig.hop_limit !== undefined) {
+                    document.getElementById('preset-hop-limit').value = loraConfig.hop_limit.toString();
+                }
+                
+                if (loraConfig.tx_power !== undefined) {
+                    document.getElementById('preset-tx-power').value = loraConfig.tx_power.toString();
+                }
+                
+                if (loraConfig.tx_enabled !== undefined) {
+                    document.getElementById('preset-tx-enabled').checked = loraConfig.tx_enabled;
+                }
+                
+                if (loraConfig.sx126x_rx_boosted_gain !== undefined) {
+                    document.getElementById('preset-rx-boosted-gain').checked = loraConfig.sx126x_rx_boosted_gain;
+                }
+                
+                if (loraConfig.region !== undefined) {
+                    let regionName;
+                    if (typeof loraConfig.region === 'string') {
+                        // Already a string name
+                        regionName = loraConfig.region;
+                    } else {
+                        // Convert from numeric value
+                        const regionMap = {
+                            1: 'US',
+                            2: 'EU_433',
+                            3: 'EU_868',
+                            4: 'CN',
+                            5: 'JP',
+                            6: 'ANZ',
+                            7: 'KR',
+                            8: 'TW',
+                            9: 'RU',
+                            10: 'IN',
+                            11: 'NZ_865',
+                            12: 'TH',
+                            13: 'LORA_24',
+                            14: 'UA_433',
+                            15: 'UA_868'
+                        };
+                        regionName = regionMap[loraConfig.region] || 'US';
+                    }
+                    document.getElementById('preset-region').value = regionName;
+                }
+            } else {
+                // Use manual/advanced settings
+                document.getElementById('use-lora-presets').checked = false;
+                document.getElementById('lora-presets-section').style.display = 'none';
+                document.getElementById('lora-advanced-section').style.display = 'block';
+                
+                // Load manual LoRa settings
+                if (loraConfig.modem_preset !== undefined) {
+                    let presetName;
+                    if (typeof loraConfig.modem_preset === 'string') {
+                        // Already a string name
+                        presetName = loraConfig.modem_preset;
+                    } else {
+                        // Convert from numeric value
+                        const presetMap = {
+                            0: 'LONG_FAST',
+                            1: 'LONG_SLOW', 
+                            2: 'VERY_LONG_SLOW',
+                            3: 'MEDIUM_SLOW',
+                            4: 'MEDIUM_FAST',
+                            5: 'SHORT_SLOW',
+                            6: 'SHORT_FAST',
+                            7: 'LONG_MODERATE',
+                            8: 'SHORT_TURBO'
+                        };
+                        presetName = presetMap[loraConfig.modem_preset] || 'LONG_FAST';
+                    }
+                    document.getElementById('modem-preset').value = presetName;
+                }
+                
+                if (loraConfig.bandwidth !== undefined) {
+                    // Note: decoded bandwidth is already in kHz, no need to convert
+                    const bandwidthKhz = loraConfig.bandwidth;
+                    console.log('Setting bandwidth:', bandwidthKhz, 'kHz (decoded value already in kHz)');
+                    const bandwidthField = document.getElementById('bandwidth');
+                    if (bandwidthField) {
+                        bandwidthField.value = bandwidthKhz.toString();
+                        console.log('Bandwidth field set to:', bandwidthField.value);
+                    } else {
+                        console.error('Bandwidth field not found!');
+                    }
+                }
+                
+                if (loraConfig.spread_factor !== undefined) {
+                    document.getElementById('spread-factor').value = loraConfig.spread_factor.toString();
+                }
+                
+                if (loraConfig.coding_rate !== undefined) {
+                    document.getElementById('coding-rate').value = loraConfig.coding_rate.toString();
+                }
+                
+                if (loraConfig.frequency_offset !== undefined) {
+                    document.getElementById('frequency-offset').value = loraConfig.frequency_offset.toString();
+                }
+                
+                if (loraConfig.hop_limit !== undefined) {
+                    document.getElementById('hop-limit').value = loraConfig.hop_limit.toString();
+                }
+                
+                if (loraConfig.override_frequency !== undefined) {
+                    document.getElementById('override-frequency').value = loraConfig.override_frequency.toString();
+                }
+                
+                if (loraConfig.tx_enabled !== undefined) {
+                    document.getElementById('tx-enabled').checked = loraConfig.tx_enabled;
+                }
+                
+                if (loraConfig.sx126x_rx_boosted_gain !== undefined) {
+                    document.getElementById('rx-boosted-gain').checked = loraConfig.sx126x_rx_boosted_gain;
+                }
+                
+                if (loraConfig.tx_power !== undefined) {
+                    document.getElementById('tx-power').value = loraConfig.tx_power.toString();
+                }
+                
+                if (loraConfig.region !== undefined) {
+                    let regionName;
+                    if (typeof loraConfig.region === 'string') {
+                        // Already a string name
+                        regionName = loraConfig.region;
+                    } else {
+                        // Convert from numeric value
+                        const regionMap = {
+                            1: 'US',
+                            2: 'EU_433',
+                            3: 'EU_868',
+                            4: 'CN',
+                            5: 'JP',
+                            6: 'ANZ',
+                            7: 'KR',
+                            8: 'TW',
+                            9: 'RU',
+                            10: 'IN',
+                            11: 'NZ_865',
+                            12: 'TH',
+                            13: 'LORA_24',
+                            14: 'UA_433',
+                            15: 'UA_868'
+                        };
+                        regionName = regionMap[loraConfig.region] || 'US';
+                    }
+                    document.getElementById('region').value = regionName;
+                }
+            }
         }
         
         // Focus on input when page loads

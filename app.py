@@ -11,13 +11,15 @@ from urllib.parse import urlparse, parse_qs
 from typing import Dict, Any, List
 
 from flask import Flask, render_template, request, jsonify
-from meshtastic import channel_pb2, apponly_pb2, mesh_pb2
+from meshtastic import channel_pb2, apponly_pb2, mesh_pb2, config_pb2
 from google.protobuf.message import DecodeError
 from google.protobuf.json_format import MessageToDict
 from PIL import Image
 from pyzbar import pyzbar
 import cv2
 import numpy as np
+import qrcode
+from io import BytesIO
 
 app = Flask(__name__)
 
@@ -255,6 +257,310 @@ class MeshtasticDecoder:
         # Channel should have settings, role, or index
         return bool(data.get('settings') or data.get('role') is not None or data.get('index') is not None)
 
+class MeshtasticEncoder:
+    """Handles encoding of Meshtastic channel configurations into URLs and QR codes"""
+    
+    def encode_channel_set(self, channels_data: List[Dict[str, Any]], lora_config_data: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Encode multiple channels into a ChannelSet and create Meshtastic URL
+        
+        Args:
+            channels_data: List of channel configuration dictionaries
+            lora_config_data: Optional LoRa configuration dictionary
+            
+        Returns:
+            Dictionary containing URL, QR code data, and success status
+        """
+        try:
+            # Create ChannelSet protobuf
+            channel_set = apponly_pb2.ChannelSet()
+            
+            for i, channel_data in enumerate(channels_data):
+                # Create Channel protobuf
+                channel = channel_pb2.Channel()
+                channel.index = i
+                
+                # Set channel role
+                role_map = {
+                    'primary': channel_pb2.Channel.Role.PRIMARY,
+                    'secondary': channel_pb2.Channel.Role.SECONDARY,
+                    'disabled': channel_pb2.Channel.Role.DISABLED
+                }
+                channel.role = role_map.get(channel_data.get('role', 'secondary'), channel_pb2.Channel.Role.SECONDARY)
+                
+                # Create channel settings
+                settings = channel_pb2.ChannelSettings()
+                
+                if channel_data.get('name'):
+                    settings.name = channel_data['name']
+                
+                if channel_data.get('psk'):
+                    # Convert PSK from hex string or base64 to bytes
+                    psk_str = channel_data['psk']
+                    try:
+                        if psk_str.startswith('0x'):
+                            settings.psk = bytes.fromhex(psk_str[2:])
+                        else:
+                            # Try as base64
+                            settings.psk = base64.b64decode(psk_str)
+                    except:
+                        # If all else fails, use as UTF-8 bytes (not recommended but fallback)
+                        settings.psk = psk_str.encode('utf-8')[:32]  # Limit to 32 bytes
+                
+                
+                # Set uplink/downlink enabled flags
+                if 'uplink_enabled' in channel_data:
+                    settings.uplink_enabled = bool(channel_data['uplink_enabled'])
+                if 'downlink_enabled' in channel_data:
+                    settings.downlink_enabled = bool(channel_data['downlink_enabled'])
+                
+                # Set module settings if provided - TRY EXPLICIT APPROACH
+                if 'module_settings' in channel_data:
+                    module_settings = channel_pb2.ModuleSettings()
+                    
+                    if 'position_precision' in channel_data['module_settings']:
+                        precision = int(channel_data['module_settings']['position_precision'])
+                        module_settings.position_precision = precision
+                    
+                    # Handle client muted if present
+                    if 'is_client_muted' in channel_data['module_settings']:
+                        module_settings.is_client_muted = bool(channel_data['module_settings']['is_client_muted'])
+                    
+                    # Use direct assignment instead of CopyFrom
+                    settings.module_settings.CopyFrom(module_settings)
+                
+                channel.settings.CopyFrom(settings)
+                channel_set.settings.append(channel.settings)
+            
+            # Add LoRa config if provided
+            if lora_config_data:
+                lora_config = config_pb2.Config.LoRaConfig()
+                
+                if 'use_preset' in lora_config_data:
+                    lora_config.use_preset = bool(lora_config_data['use_preset'])
+                if 'modem_preset' in lora_config_data:
+                    # Map preset names to integer values (updated for new values)
+                    preset_map = {
+                        'LONG_FAST': 0,       # LONG_FAST
+                        'LONG_SLOW': 1,       # LONG_SLOW  
+                        'VERY_LONG_SLOW': 2,  # VERY_LONG_SLOW
+                        'MEDIUM_SLOW': 3,     # MEDIUM_SLOW
+                        'MEDIUM_FAST': 4,     # MEDIUM_FAST
+                        'SHORT_SLOW': 5,      # SHORT_SLOW
+                        'SHORT_FAST': 6,      # SHORT_FAST
+                        'LONG_MODERATE': 7,   # LONG_MODERATE
+                        'SHORT_TURBO': 8,     # SHORT_TURBO
+                        # Legacy support
+                        'long_fast': 0,
+                        'long_slow': 1,
+                        'very_long_slow': 2,
+                        'medium_slow': 3,
+                        'medium_fast': 4,
+                        'short_slow': 5,
+                        'short_fast': 6
+                    }
+                    lora_config.modem_preset = preset_map.get(lora_config_data['modem_preset'], 0)
+                if 'bandwidth' in lora_config_data:
+                    # Convert bandwidth from kHz to Hz (multiply by 1000) and ensure it's an integer
+                    bandwidth_khz = float(lora_config_data['bandwidth'])
+                    lora_config.bandwidth = int(bandwidth_khz * 1000)
+                if 'spread_factor' in lora_config_data:
+                    lora_config.spread_factor = int(lora_config_data['spread_factor'])
+                if 'coding_rate' in lora_config_data:
+                    lora_config.coding_rate = int(lora_config_data['coding_rate'])
+                if 'frequency_offset' in lora_config_data:
+                    lora_config.frequency_offset = float(lora_config_data['frequency_offset'])
+                if 'hop_limit' in lora_config_data:
+                    lora_config.hop_limit = int(lora_config_data['hop_limit'])
+                if 'tx_enabled' in lora_config_data:
+                    lora_config.tx_enabled = bool(lora_config_data['tx_enabled'])
+                if 'tx_power' in lora_config_data:
+                    lora_config.tx_power = int(lora_config_data['tx_power'])
+                if 'channel_num' in lora_config_data:
+                    lora_config.channel_num = int(lora_config_data['channel_num'])
+                if 'override_duty_cycle' in lora_config_data:
+                    lora_config.override_duty_cycle = bool(lora_config_data['override_duty_cycle'])
+                if 'sx126x_rx_boosted_gain' in lora_config_data:
+                    lora_config.sx126x_rx_boosted_gain = bool(lora_config_data['sx126x_rx_boosted_gain'])
+                if 'override_frequency' in lora_config_data:
+                    lora_config.override_frequency = float(lora_config_data['override_frequency'])
+                if 'region' in lora_config_data:
+                    # Map region string to enum value
+                    region_map = {
+                        'US': 1,
+                        'EU_433': 2,
+                        'EU_868': 3,
+                        'CN': 4,
+                        'JP': 5,
+                        'ANZ': 6,
+                        'KR': 7,
+                        'TW': 8,
+                        'RU': 9,
+                        'IN': 10,
+                        'NZ_865': 11,
+                        'TH': 12,
+                        'LORA_24': 13,
+                        'UA_433': 14,
+                        'UA_868': 15
+                    }
+                    lora_config.region = region_map.get(lora_config_data['region'], 1)  # Default to US
+                    
+                channel_set.lora_config.CopyFrom(lora_config)
+            
+            # Serialize the ChannelSet to bytes
+            protobuf_data = channel_set.SerializeToString()
+            
+            # Encode as base64url
+            encoded_data = self._base64url_encode(protobuf_data)
+            
+            # Create Meshtastic URL
+            url = f"https://meshtastic.org/e/#{encoded_data}"
+            
+            # Generate QR code
+            qr_code_data = self._generate_qr_code(url)
+            
+            return {
+                'success': True,
+                'url': url,
+                'qr_code': qr_code_data,
+                'channels_count': len(channels_data),
+                'encoded_size': len(protobuf_data)
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to encode channel set: {str(e)}'
+            }
+    
+    def encode_single_channel(self, channel_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Encode a single channel into a Channel protobuf and create Meshtastic URL
+        
+        Args:
+            channel_data: Channel configuration dictionary
+            
+        Returns:
+            Dictionary containing URL, QR code data, and success status
+        """
+        try:
+            # Create Channel protobuf
+            channel = channel_pb2.Channel()
+            channel.index = channel_data.get('index', 0)
+            
+            # Set channel role
+            role_map = {
+                'primary': channel_pb2.Channel.Role.PRIMARY,
+                'secondary': channel_pb2.Channel.Role.SECONDARY,
+                'disabled': channel_pb2.Channel.Role.DISABLED
+            }
+            channel.role = role_map.get(channel_data.get('role', 'secondary'), channel_pb2.Channel.Role.SECONDARY)
+            
+            # Create channel settings
+            settings = channel_pb2.ChannelSettings()
+            
+            if channel_data.get('name'):
+                settings.name = channel_data['name']
+            
+            if channel_data.get('psk'):
+                # Convert PSK from hex string or base64 to bytes
+                psk_str = channel_data['psk']
+                try:
+                    if psk_str.startswith('0x'):
+                        settings.psk = bytes.fromhex(psk_str[2:])
+                    else:
+                        # Try as base64
+                        settings.psk = base64.b64decode(psk_str)
+                except:
+                    # If all else fails, use as UTF-8 bytes (not recommended but fallback)
+                    settings.psk = psk_str.encode('utf-8')[:32]  # Limit to 32 bytes
+            
+            
+            # Set uplink/downlink enabled flags
+            if 'uplink_enabled' in channel_data:
+                settings.uplink_enabled = bool(channel_data['uplink_enabled'])
+            if 'downlink_enabled' in channel_data:
+                settings.downlink_enabled = bool(channel_data['downlink_enabled'])
+            
+            # Set module settings if provided
+            if 'module_settings' in channel_data:
+                module_settings = channel_pb2.ModuleSettings()
+                
+                if 'position_precision' in channel_data['module_settings']:
+                    module_settings.position_precision = int(channel_data['module_settings']['position_precision'])
+                
+                settings.module_settings.CopyFrom(module_settings)
+            
+            channel.settings.CopyFrom(settings)
+            
+            # Serialize the Channel to bytes
+            protobuf_data = channel.SerializeToString()
+            
+            # Encode as base64url
+            encoded_data = self._base64url_encode(protobuf_data)
+            
+            # Create Meshtastic URL
+            url = f"https://meshtastic.org/e/#{encoded_data}"
+            
+            # Generate QR code
+            qr_code_data = self._generate_qr_code(url)
+            
+            return {
+                'success': True,
+                'url': url,
+                'qr_code': qr_code_data,
+                'encoded_size': len(protobuf_data)
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to encode single channel: {str(e)}'
+            }
+    
+    def _base64url_encode(self, data: bytes) -> str:
+        """Encode bytes as base64url string"""
+        # Use URL-safe base64 encoding and remove padding
+        encoded = base64.urlsafe_b64encode(data).decode('ascii')
+        return encoded.rstrip('=')
+    
+    def _generate_qr_code(self, url: str) -> Dict[str, Any]:
+        """Generate QR code image for the given URL"""
+        try:
+            # Create QR code
+            qr = qrcode.QRCode(
+                version=1,  # Controls the size of the QR Code
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(url)
+            qr.make(fit=True)
+            
+            # Create image
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            
+            # Convert to bytes
+            img_buffer = BytesIO()
+            qr_img.save(img_buffer, format='PNG')
+            img_buffer.seek(0)
+            
+            # Encode as base64 for web display
+            img_base64 = base64.b64encode(img_buffer.getvalue()).decode('ascii')
+            
+            return {
+                'success': True,
+                'image_base64': img_base64,
+                'mime_type': 'image/png',
+                'size': qr_img.size
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to generate QR code: {str(e)}'
+            }
+
 class QRCodeProcessor:
     """Handles QR code image processing to extract URLs"""
     
@@ -403,8 +709,9 @@ class QRCodeProcessor:
             ('/v/#' in url_lower and len(url) > 30)
         )
 
-# Initialize decoder and QR processor
+# Initialize decoder, encoder, and QR processor
 decoder = MeshtasticDecoder()
+encoder = MeshtasticEncoder()
 qr_processor = QRCodeProcessor()
 
 @app.route('/')
@@ -481,10 +788,44 @@ def upload_qr():
             'error': f'Failed to process uploaded file: {str(e)}'
         }), 500
 
+@app.route('/encode', methods=['POST'])
+def encode_channels():
+    """API endpoint to encode Meshtastic channel configurations into URLs and QR codes"""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'success': False, 'error': 'No data provided'}), 400
+    
+    # Get LoRa config if provided
+    lora_config = data.get('lora_config')
+    
+    # Determine if we're encoding a single channel or multiple channels
+    if 'channels' in data and isinstance(data['channels'], list):
+        # Multiple channels - encode as ChannelSet
+        channels_data = data['channels']
+        if not channels_data:
+            return jsonify({'success': False, 'error': 'No channels provided'}), 400
+        
+        result = encoder.encode_channel_set(channels_data, lora_config)
+    elif 'channel' in data:
+        # Single channel - encode as single Channel (legacy support)
+        channel_data = data['channel']
+        if not channel_data:
+            return jsonify({'success': False, 'error': 'No channel data provided'}), 400
+        
+        result = encoder.encode_single_channel(channel_data)
+    else:
+        return jsonify({
+            'success': False, 
+            'error': 'Invalid request format. Expected "channels" array or "channel" object.'
+        }), 400
+    
+    return jsonify(result)
+
 @app.route('/health')
 def health():
     """Health check endpoint"""
     return jsonify({'status': 'ok', 'service': 'meshtastic-decoder'})
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=True, host='0.0.0.0', port=5007)

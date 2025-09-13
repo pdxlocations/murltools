@@ -6,3 +6,4 @@ setuptools<81
 Pillow>=9.0.0
 pyzbar>=0.1.9
 opencv-python>=4.5.0
+qrcode[pil]>=7.0
