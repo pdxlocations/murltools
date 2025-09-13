@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meshtastic Channel URL Decoder</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #34495e;
+        }
+        
+        input[type="url"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease;
+        }
+        
+        input[type="url"]:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        #decode-btn {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        #decode-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        #decode-btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        #clear-btn {
+            background-color: #95a5a6;
+            color: white;
+        }
+        
+        #clear-btn:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .example {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .example-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .example-url {
+            font-family: monospace;
+            background-color: #e9ecef;
+            padding: 5px;
+            border-radius: 3px;
+            word-break: break-all;
+            font-size: 14px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+        
+        .result {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 6px;
+            padding: 20px;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            padding: 20px;
+        }
+        
+        .error-message {
+            color: #721c24;
+            font-weight: 600;
+        }
+        
+        .result-json {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            overflow-x: auto;
+        }
+        
+        pre {
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .channel-summary {
+            background-color: #e8f4fd;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .channel-header {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .channel-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .detail-item {
+            background-color: white;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #3498db;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #7f8c8d;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .detail-value {
+            color: #2c3e50;
+            font-family: monospace;
+            margin-top: 2px;
+        }
+        
+        .copy-button {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        
+        .copy-button:hover {
+            background-color: #219a52;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Meshtastic Channel URL Decoder</h1>
+        <p class="subtitle">Decode Meshtastic channel URLs and view their protobuf contents</p>
+        
+        <div class="input-group">
+            <label for="url-input">Meshtastic Channel URL:</label>
+            <input type="url" id="url-input" placeholder="https://meshtastic.org/e/#CgMSAQo..." />
+        </div>
+        
+        <div class="button-group">
+            <button id="decode-btn">🔍 Decode Channel</button>
+            <button id="clear-btn">🗑️ Clear</button>
+        </div>
+        
+        <div class="example">
+            <div class="example-title">Example URL Format:</div>
+            <div class="example-url">https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE</div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <p>🔄 Decoding channel URL...</p>
+        </div>
+        
+        <div class="result" id="result">
+            <!-- Results will be populated here -->
+        </div>
+    </div>
+
+    <script>
+        const urlInput = document.getElementById('url-input');
+        const decodeBtn = document.getElementById('decode-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+
+        decodeBtn.addEventListener('click', decodeURL);
+        clearBtn.addEventListener('click', clearAll);
+        
+        // Allow Enter key to trigger decode
+        urlInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                decodeURL();
+            }
+        });
+
+        async function decodeURL() {
+            const url = urlInput.value.trim();
+            
+            if (!url) {
+                alert('Please enter a Meshtastic channel URL');
+                return;
+            }
+            
+            // Show loading state
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            decodeBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/decode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                const data = await response.json();
+                displayResult(data);
+                
+            } catch (error) {
+                displayResult({
+                    success: false,
+                    error: 'Network error: ' + error.message
+                });
+            } finally {
+                loading.style.display = 'none';
+                decodeBtn.disabled = false;
+            }
+        }
+
+        function displayResult(data) {
+            result.style.display = 'block';
+            
+            if (data.success) {
+                result.innerHTML = createSuccessHTML(data);
+            } else {
+                result.innerHTML = createErrorHTML(data);
+            }
+        }
+
+        function createSuccessHTML(data) {
+            let html = '<div class="success">';
+            html += '<h3>✅ Successfully Decoded Channel</h3>';
+            
+            // Create channel summaries
+            if (data.type === 'ChannelSet' && data.channels) {
+                data.channels.forEach((channel, index) => {
+                    html += createChannelSummary(channel, index);
+                });
+            } else if (data.type === 'SingleChannel' && data.channel) {
+                html += createChannelSummary(data.channel, 0);
+            }
+            
+            // Full JSON data
+            html += '<div class="result-json">';
+            html += '<strong>Full Decoded Data:</strong>';
+            html += '<button class="copy-button" onclick="copyToClipboard(\'' + 
+                    JSON.stringify(data, null, 2).replace(/'/g, "\\'") + '\')">📋 Copy JSON</button>';
+            html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            html += '</div>';
+            
+            html += '</div>';
+            return html;
+        }
+
+        function createChannelSummary(channel, index) {
+            let html = '<div class="channel-summary">';
+            html += '<div class="channel-header">Channel ' + index + ' (' + channel.role + ')</div>';
+            html += '<div class="channel-details">';
+            
+            if (channel.settings) {
+                if (channel.settings.name) {
+                    html += '<div class="detail-item">';
+                    html += '<div class="detail-label">Name</div>';
+                    html += '<div class="detail-value">' + channel.settings.name + '</div>';
+                    html += '</div>';
+                }
+                
+                if (channel.settings.psk) {
+                    html += '<div class="detail-item">';
+                    html += '<div class="detail-label">PSK</div>';
+                    html += '<div class="detail-value">' + channel.settings.psk + '</div>';
+                    html += '</div>';
+                }
+                
+                if (channel.settings.modem_config) {
+                    html += '<div class="detail-item">';
+                    html += '<div class="detail-label">Modem Config</div>';
+                    html += '<div class="detail-value">' + channel.settings.modem_config + '</div>';
+                    html += '</div>';
+                }
+            }
+            
+            html += '</div>';
+            html += '</div>';
+            return html;
+        }
+
+        function createErrorHTML(data) {
+            let html = '<div class="error">';
+            html += '<h3>❌ Decoding Failed</h3>';
+            html += '<div class="error-message">' + data.error + '</div>';
+            
+            if (data.raw_data) {
+                html += '<div class="result-json">';
+                html += '<strong>Debug Information:</strong>';
+                html += '<pre>' + JSON.stringify(data.raw_data, null, 2) + '</pre>';
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        function clearAll() {
+            urlInput.value = '';
+            result.style.display = 'none';
+            loading.style.display = 'none';
+            urlInput.focus();
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function() {
+                // Temporarily change button text
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        // Focus on input when page loads
+        window.addEventListener('load', () => {
+            urlInput.focus();
+        });
+    </script>
+</body>
+</html>
