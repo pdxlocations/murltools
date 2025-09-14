@@ -361,9 +361,8 @@ class MeshtasticEncoder:
                     }
                     lora_config.modem_preset = preset_map.get(lora_config_data['modem_preset'], 0)
                 if 'bandwidth' in lora_config_data:
-                    # Convert bandwidth from kHz to Hz (multiply by 1000) and ensure it's an integer
-                    bandwidth_khz = float(lora_config_data['bandwidth'])
-                    lora_config.bandwidth = int(bandwidth_khz * 1000)
+                    # Use bandwidth value as-is (no unit conversion)
+                    lora_config.bandwidth = int(lora_config_data['bandwidth'])
                 if 'spread_factor' in lora_config_data:
                     lora_config.spread_factor = int(lora_config_data['spread_factor'])
                 if 'coding_rate' in lora_config_data:
