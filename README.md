@@ -1,14 +1,36 @@
-# Meshtastic Channel URL Decoder
+# Meshtastic URL Tools (murltools)
 
-A Python Flask application that decodes Meshtastic channel URLs and displays their protobuf contents in both a web interface and command-line tool.
+A comprehensive Python Flask application for encoding, decoding, and managing Meshtastic channel URLs. Create custom channel configurations, generate QR codes, decode existing URLs, and seamlessly transfer settings between configurations.
 
 ## Features
 
-- 🌐 **Web Interface**: User-friendly web UI for decoding Meshtastic channel URLs
-- 💻 **Command Line Tool**: Standalone script for batch processing and automation
-- 🔍 **Protobuf Decoding**: Decodes both ChannelSet and single Channel protobuf messages
-- 📋 **Multiple Output Formats**: JSON, pretty-printed JSON, and human-readable summaries
-- 🔐 **Security Information**: Displays PSK, modem configurations, and channel settings
+### 🔧 **Channel Configuration Creator**
+- **Visual Form Interface**: Create multi-channel configurations with intuitive web forms
+- **LoRa Settings**: Configure bandwidth, spread factor, coding rate, and regional settings
+- **Position Precision**: Set location sharing precision (1-32 bits) for privacy control
+- **PSK Management**: Support for both hex and base64 pre-shared keys
+- **Preset & Manual Modes**: Choose from standard LoRa presets or configure manually
+
+### 📱 **QR Code Generation**
+- **Instant QR Codes**: Generate scannable QR codes for easy device configuration
+- **Mobile-Friendly**: Perfect for configuring devices in the field
+- **High-Quality Output**: PNG format with error correction
+
+### 🔍 **URL Decoding & Analysis**
+- **Universal Decoder**: Decode both ChannelSet and single Channel protobuf messages
+- **Multi-Format Support**: Handle various Meshtastic URL formats and QR codes
+- **Detailed Analysis**: View channel settings, LoRa parameters, and security information
+- **Load Settings**: Import decoded configurations back into the creator for editing
+
+### 🖼️ **QR Code Upload & Scanning**
+- **Drag & Drop Interface**: Upload QR code images for instant decoding
+- **Format Support**: PNG, JPEG, and other common image formats
+- **Automatic Detection**: Intelligent QR code recognition and URL extraction
+
+### 💻 **Command Line Interface**
+- **Batch Processing**: Decode multiple URLs with automation support
+- **JSON Output**: Machine-readable output for integration
+- **Summary Views**: Human-readable summaries for quick analysis
 
 ## Installation
 
@@ -27,14 +49,31 @@ A Python Flask application that decodes Meshtastic channel URLs and displays the
    python app.py
    ```
 
-2. **Open your browser and navigate to:** `http://localhost:5000`
+2. **Open your browser and navigate to:** `http://localhost:5002`
 
-3. **Enter a Meshtastic channel URL** in the format:
-   ```
-   https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE
-   ```
+3. **Choose your workflow:**
 
-4. **Click "Decode Channel"** to see the decoded protobuf data
+#### Create New Configuration
+- Go to the **"Create URL"** tab
+- Configure channels with names, PSKs, and position precision
+- Set LoRa parameters (bandwidth, spread factor, coding rate, region)
+- Choose between preset and manual modes
+- Generate Meshtastic URL and QR code
+- Copy URL or download QR code for device configuration
+
+#### Decode Existing URL/QR Code
+- Go to the **"Decode URL"** tab
+- **For URLs**: Paste Meshtastic URL and click "Decode"
+- **For QR Codes**: Drag & drop QR code image or click to upload
+- View decoded channel settings and LoRa configuration
+- Use **"🔧 Load into Create URL"** to import settings for editing
+
+#### Edit Existing Configuration
+- Decode any Meshtastic URL or QR code
+- Click **"🔧 Load into Create URL"** button
+- Automatically switches to Create URL tab with pre-populated form
+- Modify any settings as needed
+- Generate new URL/QR code with your changes
 
 ### Command Line Interface
 
@@ -60,24 +99,37 @@ python decode.py --summary "https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE"
 python decode.py --help
 ```
 
-## Supported URL Formats
+## Supported Formats
 
-The decoder supports various Meshtastic URL formats:
+### Input Formats
+- **Meshtastic URLs**: `https://meshtastic.org/e/#[encoded_data]`
+- **Query Parameter URLs**: `https://meshtastic.org/e/?c=[encoded_data]`
+- **QR Code Images**: PNG, JPEG, and other common formats
+- **Base64url Encoded Data**: Direct protobuf data input
 
-- `https://meshtastic.org/e/#[encoded_data]`
-- `https://meshtastic.org/e/?c=[encoded_data]`
-- URLs with base64url encoded protobuf data
-- Both ChannelSet and single Channel messages
+### Protobuf Message Types
+- **ChannelSet**: Multi-channel configurations with LoRa settings
+- **Single Channel**: Individual channel configurations
+- **NodeInfo**: Node information and status
+- **User**: User profile data
+- **Position**: Location and GPS data
+- **MyNodeInfo**: Local node configuration
 
-## Output Information
+## Configuration Options
 
-The decoder extracts and displays:
+### Channel Settings
+- **Channel Names**: Up to 11 characters per channel
+- **Pre-Shared Keys (PSK)**: Hex (0x...) or Base64 format
+- **Channel Roles**: Primary, Secondary, or Disabled
+- **Position Precision**: 1-32 bits (privacy control)
+- **Module Settings**: Position precision and other module configs
 
-- **Channel Information**: Name, role (PRIMARY/SECONDARY/DISABLED)
-- **Security**: Pre-shared key (PSK) in hexadecimal
-- **Radio Settings**: Modem config, TX power, bandwidth, spread factor, coding rate
-- **Frequency**: Frequency offset settings
-- **Raw Data**: Hex dump of decoded protobuf for debugging
+### LoRa Configuration
+- **Modem Presets**: LONG_FAST, LONG_SLOW, VERY_LONG_SLOW, etc.
+- **Manual Settings**: Custom bandwidth, spread factor, coding rate
+- **Regional Settings**: US, EU_433, EU_868, CN, JP, ANZ, etc.
+- **Power Management**: TX power, TX enable/disable, RX boost
+- **Advanced Options**: Frequency offset, hop limit, duty cycle override
 
 ## Example Output
 
@@ -106,14 +158,36 @@ When running as a Flask app, the following endpoints are available:
 
 - `GET /` - Web interface
 - `POST /decode` - JSON API for decoding URLs
-- `GET /health` - Health check endpoint
+- `POST /encode` - JSON API for encoding configurations
+- `POST /upload` - Image upload for QR code decoding
 
-### API Usage Example
+### API Usage Examples
 
+#### Decode URL
 ```bash
-curl -X POST http://localhost:5000/decode \
+curl -X POST http://localhost:5002/decode \
   -H "Content-Type: application/json" \
   -d '{"url": "https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE"}'
+```
+
+#### Encode Configuration
+```bash
+curl -X POST http://localhost:5002/encode \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channels": [
+      {
+        "name": "My Channel",
+        "psk": "AQIDBAUGBwgJCgsMDQ4PEA==",
+        "role": "primary"
+      }
+    ],
+    "lora_config": {
+      "use_preset": true,
+      "modem_preset": "LONG_FAST",
+      "region": "US"
+    }
+  }'
 ```
 
 ## Error Handling
@@ -134,34 +208,84 @@ When decoding fails, the application provides:
 
 ### Project Structure
 ```
-proto-decode/
-├── app.py                 # Flask application and decoder logic
+murltools/
+├── app.py                 # Flask application with encoder/decoder logic
 ├── decode.py             # Command-line interface
 ├── requirements.txt      # Python dependencies
 ├── templates/
-│   └── index.html       # Web interface template
+│   └── index.html       # Complete web interface with tabs
 └── README.md            # This file
 ```
 
 ### Dependencies
 - **Flask**: Web framework for the UI
-- **meshtastic**: Official Meshtastic Python library
-- **protobuf**: Google Protocol Buffers
-- **cryptography**: For handling encryption-related functionality
-- **protobuf-to-dict**: Convert protobuf messages to dictionaries
+- **meshtastic**: Official Meshtastic Python library for protobuf definitions
+- **protobuf**: Google Protocol Buffers for message serialization
+- **qrcode**: QR code generation library
+- **Pillow (PIL)**: Image processing for QR code generation and upload
+- **pyzbar**: QR code reading from uploaded images
+- **opencv-python**: Computer vision for QR code detection
+- **numpy**: Numerical operations for image processing
+
+## Key Features Highlights
+
+### 🔧 Load Settings Workflow
+One of the most powerful features is the **Load Settings** functionality:
+1. **Decode** any existing Meshtastic URL or QR code
+2. **Click** the "🔧 Load into Create URL" button
+3. **Automatically** switch to Create URL tab with form pre-populated
+4. **Edit** any settings (PSK, bandwidth, region, etc.)
+5. **Generate** new URL and QR code with your modifications
+
+This makes it easy to:
+- Clone and modify existing configurations
+- Fix incorrect settings in URLs
+- Convert between different channel setups
+- Create variations of working configurations
+
+### 🎯 Position Privacy Control
+- **32-bit precision**: ~0.5 cm accuracy (maximum)
+- **24-bit precision**: ~1.2 m accuracy (high)
+- **16-bit precision**: ~305 m accuracy (medium)
+- **8-bit precision**: ~78 km accuracy (low privacy impact)
+- **Lower bits**: Increasingly private but less precise
 
 ## Security Considerations
 
-This tool displays sensitive information including:
-- Pre-shared keys (PSK) used for mesh encryption
-- Channel configurations that could be used to access networks
+**This tool handles sensitive information:**
+- **Pre-shared keys (PSK)**: Used for mesh encryption
+- **Channel configurations**: Could provide network access
+- **Location precision**: Privacy implications
 
-**Important**: Only use this tool with channels you own or have permission to decode. Be careful when sharing decoded output as it may contain sensitive network credentials.
+**Important Guidelines:**
+- Only use with channels you own or have permission to access
+- Be careful sharing generated URLs/QR codes - they contain network credentials
+- Consider using lower position precision for privacy
+- Generated QR codes should be treated like passwords
+
+## Troubleshooting
+
+### Common Issues
+- **Bandwidth not loading**: Ensure you're using manual LoRa mode, not presets
+- **QR code not scanning**: Check image quality and format (PNG/JPEG)
+- **PSK format errors**: Use hex format (0x1234abcd) or base64 (AQIDBAUGBw==)
+- **Load Settings not working**: Check browser console for JavaScript errors
+
+### Debug Tips
+- Enable browser developer tools to see network requests
+- Check the Flask console for encoding/decoding errors  
+- Use the command-line decoder for batch processing
+- Verify protobuf data with `--pretty` flag in CLI
 
 ## License
 
-This project is provided as-is for educational and development purposes. Please respect Meshtastic network operators and only decode channels you have permission to access.
+This project is provided as-is for educational and development purposes. Please respect Meshtastic network operators and only access channels you have permission to use.
 
 ## Contributing
 
-Feel free to submit issues, feature requests, or pull requests to improve the decoder functionality.
+Contributions welcome! Areas for improvement:
+- Additional protobuf message types
+- Enhanced QR code recognition
+- Mobile-responsive improvements
+- Additional export formats
+- Batch processing features
