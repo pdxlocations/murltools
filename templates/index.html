@@ -620,7 +620,7 @@
             <div id="lora-advanced-section" class="input-group">
                 <h4>Advanced LoRa Settings (applies to all channels)</h4>
                 
-                <div class="input-group">
+                <div id="modem-preset-section" class="input-group" style="display: none;">
                     <label for="modem-preset">Modem Preset:</label>
                     <select id="modem-preset">
                         <option value="LONG_FAST" selected>LongFast</option>
@@ -762,8 +762,9 @@
         decodeBtn.addEventListener('click', decodeURL);
         clearBtn.addEventListener('click', clearAll);
         
-        // Add event delegation for Load Settings buttons (dynamically created)
+        // Add event delegation for dynamically created buttons
         document.addEventListener('click', function(e) {
+            // Handle Load Settings buttons
             if (e.target && e.target.classList.contains('load-settings-btn')) {
                 console.log('Load Settings button clicked!');
                 const configData = e.target.getAttribute('data-config');
@@ -778,6 +779,38 @@
                     }
                 } else {
                     console.error('No config data found on button');
+                }
+            }
+            
+            // Handle Copy JSON buttons
+            if (e.target && e.target.classList.contains('copy-json-btn')) {
+                const jsonData = e.target.getAttribute('data-json');
+                if (jsonData) {
+                    copyToClipboard(jsonData);
+                    // Show feedback
+                    const originalText = e.target.textContent;
+                    e.target.textContent = '✅ Copied!';
+                    e.target.disabled = true;
+                    setTimeout(() => {
+                        e.target.textContent = originalText;
+                        e.target.disabled = false;
+                    }, 2000);
+                }
+            }
+            
+            // Handle Copy URL buttons
+            if (e.target && e.target.classList.contains('copy-url-btn')) {
+                const urlData = e.target.getAttribute('data-url');
+                if (urlData) {
+                    copyToClipboard(urlData);
+                    // Show feedback
+                    const originalText = e.target.textContent;
+                    e.target.textContent = '✅ Copied!';
+                    e.target.disabled = true;
+                    setTimeout(() => {
+                        e.target.textContent = originalText;
+                        e.target.disabled = false;
+                    }, 2000);
                 }
             }
         });
@@ -852,8 +885,8 @@
             html += '<div class="result-json">';
             html += '<strong>Full Decoded Data:</strong>';
             html += '<div style="margin-bottom: 10px;">';
-            html += '<button class="copy-button" onclick="copyToClipboard(\'' + 
-                    JSON.stringify(data, null, 2).replace(/'/g, "\\'") + '\')">📋 Copy JSON</button>';
+            html += '<button class="copy-button copy-json-btn" data-json="' + 
+                    JSON.stringify(data, null, 2).replace(/"/g, '&quot;') + '">📋 Copy JSON</button>';
             html += '<button class="copy-button load-settings-btn" style="background-color: #f39c12; margin-left: 10px;" data-config="' + 
                     btoa(JSON.stringify(data)) + '">🔧 Load into Create URL</button>';
             html += '</div>';
@@ -922,13 +955,21 @@
 
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(function() {
-                // Temporarily change button text
-                const button = event.target;
-                const originalText = button.textContent;
-                button.textContent = '✅ Copied!';
-                setTimeout(() => {
-                    button.textContent = originalText;
-                }, 2000);
+                console.log('Text copied to clipboard successfully');
+            }).catch(function(err) {
+                console.error('Failed to copy text to clipboard:', err);
+                // Fallback for older browsers
+                try {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    console.log('Text copied using fallback method');
+                } catch (fallbackErr) {
+                    console.error('Fallback copy method also failed:', fallbackErr);
+                }
             });
         }
 
@@ -1110,7 +1151,7 @@
                         html += '<div class="result-json">';
                         html += `<strong>URL ${index + 1}:</strong> ${result.url}`;
                         html += '<div style="margin: 10px 0;">';
-                        html += `<button class="copy-button" onclick="copyToClipboard('${JSON.stringify(result.decoded, null, 2).replace(/'/g, "\\'")}')">📋 Copy JSON</button>`;
+                        html += `<button class="copy-button copy-json-btn" data-json="${JSON.stringify(result.decoded, null, 2).replace(/"/g, '&quot;')}">📋 Copy JSON</button>`;
                         html += `<button class="copy-button load-settings-btn" style="background-color: #f39c12; margin-left: 10px;" data-config="${btoa(JSON.stringify(result.decoded))}">🔧 Load Settings</button>`;
                         html += '</div>';
                         html += `<pre>${JSON.stringify(result.decoded, null, 2)}</pre>`;
@@ -1175,6 +1216,7 @@
         const useLoraPresetsCheckbox = document.getElementById('use-lora-presets');
         const loraPresetsSection = document.getElementById('lora-presets-section');
         const loraAdvancedSection = document.getElementById('lora-advanced-section');
+        const modemPresetSection = document.getElementById('modem-preset-section');
         const encodeBtn = document.getElementById('encode-btn');
         const clearEncodeBtn = document.getElementById('clear-encode-btn');
         const encodeLoading = document.getElementById('encode-loading');
@@ -1194,9 +1236,11 @@
             if (useLoraPresetsCheckbox.checked) {
                 loraPresetsSection.style.display = 'block';
                 loraAdvancedSection.style.display = 'none';
+                modemPresetSection.style.display = 'none';
             } else {
                 loraPresetsSection.style.display = 'none';
                 loraAdvancedSection.style.display = 'block';
+                modemPresetSection.style.display = 'none'; // Keep modem preset hidden when not using presets
             }
         });
         
@@ -1402,7 +1446,7 @@
             // URL display
             html += '<div class="result-json">';
             html += '<strong>Generated Meshtastic URL:</strong>';
-            html += `<button class="copy-button" onclick="copyToClipboard('${data.url.replace(/'/g, "\\'")}')">📋 Copy URL</button>`;
+            html += `<button class="copy-button copy-url-btn" data-url="${data.url.replace(/"/g, '&quot;')}">📋 Copy URL</button>`;
             html += `<div class="qr-data">${data.url}</div>`;
             html += '</div>';
             
@@ -1414,6 +1458,24 @@
                 html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; max-width: 300px; height: auto;" />`;
                 html += '</div>';
                 html += `<button class="copy-button" onclick="downloadQRCode('${data.qr_code.image_base64}', 'meshtastic-channel.png')">💾 Download QR Code</button>`;
+                html += '</div>';
+            }
+            
+            // JSON Data display - show configuration in same format as decode results
+            if (data.Config) {
+                const configData = {
+                    Config: data.Config,
+                    success: data.success,
+                    url: data.url
+                };
+                
+                html += '<div class="result-json">';
+                html += '<strong>Generated Configuration JSON:</strong>';
+                html += '<div style="margin-bottom: 10px;">';
+                html += '<button class="copy-button copy-json-btn" data-json="' + 
+                        JSON.stringify(configData, null, 2).replace(/"/g, '&quot;') + '">📋 Copy JSON</button>';
+                html += '</div>';
+                html += '<pre>' + JSON.stringify(configData, null, 2) + '</pre>';
                 html += '</div>';
             }
             
@@ -1459,6 +1521,7 @@
             useLoraPresetsCheckbox.checked = false;
             loraPresetsSection.style.display = 'none';
             loraAdvancedSection.style.display = 'block';
+            modemPresetSection.style.display = 'none';
             
             // Reset preset values
             document.getElementById('lora-preset').value = 'LONG_FAST';
@@ -1712,6 +1775,7 @@
                 document.getElementById('use-lora-presets').checked = true;
                 document.getElementById('lora-presets-section').style.display = 'block';
                 document.getElementById('lora-advanced-section').style.display = 'none';
+                document.getElementById('modem-preset-section').style.display = 'none';
                 
                 // Load preset settings
                 let presetName = 'LONG_FAST'; // Default preset
@@ -1787,6 +1851,7 @@
                 document.getElementById('use-lora-presets').checked = false;
                 document.getElementById('lora-presets-section').style.display = 'none';
                 document.getElementById('lora-advanced-section').style.display = 'block';
+                document.getElementById('modem-preset-section').style.display = 'none';
                 
                 // Load manual LoRa settings
                 if (loraConfig.modem_preset !== undefined) {

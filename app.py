@@ -418,13 +418,30 @@ class MeshtasticEncoder:
             # Generate QR code
             qr_code_data = self._generate_qr_code(url)
             
-            return {
+            # Also decode the generated URL to provide config data in same format as decoder
+            decoder_instance = MeshtasticDecoder()
+            decoded_result = decoder_instance.decode_channel_url(url)
+            
+            # Build the response with both encoding and decoding information
+            response = {
                 'success': True,
                 'url': url,
                 'qr_code': qr_code_data,
                 'channels_count': len(channels_data),
                 'encoded_size': len(protobuf_data)
             }
+            
+            # Add decoded configuration data if decoding was successful
+            if decoded_result.get('success'):
+                if 'Config' in decoded_result:
+                    response['Config'] = decoded_result['Config']
+                else:
+                    # Handle other message types that might be returned
+                    for key in decoded_result:
+                        if key not in ['success', 'url']:
+                            response[key] = decoded_result[key]
+            
+            return response
             
         except Exception as e:
             return {
@@ -504,12 +521,29 @@ class MeshtasticEncoder:
             # Generate QR code
             qr_code_data = self._generate_qr_code(url)
             
-            return {
+            # Also decode the generated URL to provide config data in same format as decoder
+            decoder_instance = MeshtasticDecoder()
+            decoded_result = decoder_instance.decode_channel_url(url)
+            
+            # Build the response with both encoding and decoding information
+            response = {
                 'success': True,
                 'url': url,
                 'qr_code': qr_code_data,
                 'encoded_size': len(protobuf_data)
             }
+            
+            # Add decoded configuration data if decoding was successful
+            if decoded_result.get('success'):
+                if 'Config' in decoded_result:
+                    response['Config'] = decoded_result['Config']
+                else:
+                    # Handle other message types that might be returned
+                    for key in decoded_result:
+                        if key not in ['success', 'url']:
+                            response[key] = decoded_result[key]
+            
+            return response
             
         except Exception as e:
             return {
