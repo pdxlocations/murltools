@@ -551,6 +551,8 @@
                 <small style="color: #7f8c8d; font-size: 12px;">Enable to use predefined LoRa settings for all channels. Leave unchecked to configure manually.</small>
             </div>
             
+            <!-- Removed common Frequency Slot - now in both preset and advanced sections -->
+            
             <div id="lora-presets-section" class="input-group" style="display: none;">
                 <label for="lora-preset">LoRa Preset:</label>
                 <select id="lora-preset">
@@ -567,6 +569,12 @@
                 <small style="color: #7f8c8d; font-size: 12px;">Controls radio modulation parameters (bandwidth, spread factor, coding rate)</small>
                 
                 <h5 style="margin: 20px 0 10px 0; color: #34495e;">Operational Settings</h5>
+                
+                <div class="input-group">
+                    <label for="preset-frequency-slot">Frequency Slot:</label>
+                    <input type="number" id="preset-frequency-slot" value="0" min="0" max="255" step="1" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Channel number (0 = auto-select based on channel name hash, 1-255 = specific slot)</small>
+                </div>
                 
                 <div class="input-group">
                     <label for="preset-hop-limit">Hop Limit:</label>
@@ -672,6 +680,12 @@
                     <label for="frequency-offset">Frequency Offset:</label>
                     <input type="number" id="frequency-offset" value="0" step="1" />
                     <small style="color: #7f8c8d; font-size: 12px;">Frequency offset in Hz (typically 0)</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="frequency-slot">Frequency Slot:</label>
+                    <input type="number" id="frequency-slot" value="0" min="0" max="255" step="1" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Channel number (0 = auto-select based on channel name hash, 1-255 = specific slot)</small>
                 </div>
                 
                 <div class="input-group">
@@ -1352,6 +1366,7 @@
                 const presetTxEnabled = document.getElementById('preset-tx-enabled').checked;
                 const presetRxBoostedGain = document.getElementById('preset-rx-boosted-gain').checked;
                 const presetRegion = document.getElementById('preset-region').value;
+                const frequencySlot = parseInt(document.getElementById('frequency-slot').value);
                 
                 loraConfig = {
                     use_preset: true,
@@ -1360,7 +1375,8 @@
                     tx_power: presetTxPower,
                     tx_enabled: presetTxEnabled,
                     sx126x_rx_boosted_gain: presetRxBoostedGain,
-                    region: presetRegion
+                    region: presetRegion,
+                    channel_num: frequencySlot
                 };
             } else {
                 // Collect manual settings
@@ -1375,6 +1391,7 @@
                 const rxBoostedGain = document.getElementById('rx-boosted-gain').checked;
                 const txPower = parseInt(document.getElementById('tx-power').value);
                 const region = document.getElementById('region').value;
+                const frequencySlot = parseInt(document.getElementById('frequency-slot').value);
                 
                 loraConfig = {
                     use_preset: false,
@@ -1387,7 +1404,8 @@
                     tx_enabled: txEnabled,
                     sx126x_rx_boosted_gain: rxBoostedGain,
                     tx_power: txPower,
-                    region: region
+                    region: region,
+                    channel_num: frequencySlot
                 };
                 
                 // Add override frequency if provided
@@ -1543,6 +1561,9 @@
             document.getElementById('rx-boosted-gain').checked = false;
             document.getElementById('tx-power').value = '20';
             document.getElementById('region').value = 'US';
+            
+            // Reset common frequency slot
+            document.getElementById('frequency-slot').value = '0';
             
             encodeResult.style.display = 'none';
             encodeLoading.style.display = 'none';
@@ -1950,6 +1971,11 @@
                     }
                     document.getElementById('region').value = regionName;
                 }
+            }
+            
+            // Load common frequency slot (applies to both preset and manual modes)
+            if (loraConfig.channel_num !== undefined) {
+                document.getElementById('frequency-slot').value = loraConfig.channel_num.toString();
             }
         }
         
