@@ -546,13 +546,13 @@
             
             <div class="input-group">
                 <label>
-                    <input type="checkbox" id="use-lora-presets" checked/> Use LoRa Presets (applies to all channels)
+                    <input type="checkbox" id="use-lora-presets" checked /> Use LoRa Presets (applies to all channels)
                 </label>
                 <small style="color: #7f8c8d; font-size: 12px;">Enable to use predefined LoRa settings for all channels. Leave unchecked to configure manually.</small>
             </div>
             
             
-            <div id="lora-presets-section" class="input-group" style="display: none;">
+            <div id="lora-presets-section" class="input-group" style="display: block;">
                 <label for="lora-preset">LoRa Preset:</label>
                 <select id="lora-preset">
                     <option value="LONG_FAST" selected>LongFast (Default)</option>
@@ -583,7 +583,7 @@
                 
                 <div class="input-group">
                     <label for="preset-tx-power">TX Power (dBm):</label>
-                    <input type="number" id="preset-tx-power" min="0" max="30" value="20" step="1" />
+                    <input type="number" id="preset-tx-power" min="0" max="30" value="30" step="1" />
                     <small style="color: #7f8c8d; font-size: 12px;">Transmit power in dBm (0-30)</small>
                 </div>
                 
@@ -596,7 +596,7 @@
                 
                 <div class="input-group">
                     <label>
-                        <input type="checkbox" id="preset-rx-boosted-gain" /> RX Boosted Gain (SX126x)
+                        <input type="checkbox" id="preset-rx-boosted-gain" checked/> RX Boosted Gain (SX126x)
                     </label>
                     <small style="color: #7f8c8d; font-size: 12px;">Boost receive sensitivity for SX126x radios</small>
                 </div>
@@ -624,7 +624,7 @@
                 </div>
             </div>
             
-            <div id="lora-advanced-section" class="input-group">
+            <div id="lora-advanced-section" class="input-group" style="display: none;">
                 <h4>Advanced LoRa Settings (applies to all channels)</h4>
                 
                 <div id="modem-preset-section" class="input-group" style="display: none;">
