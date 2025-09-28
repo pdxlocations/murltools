@@ -1345,14 +1345,24 @@
                 const role = document.getElementById(`channel-${i}-role`).value;
                 const positionPrecision = parseInt(document.getElementById(`channel-${i}-precision`).value);
                 
-                channels.push({
-                    name: name || (i === 0 ? 'Primary Channel' : `Secondary Channel ${i}`),
-                    psk: psk,
+                const channelData = {
                     role: role,
                     module_settings: {
                         position_precision: positionPrecision
                     }
-                });
+                };
+                
+                // Only include name if user actually entered one
+                if (name) {
+                    channelData.name = name;
+                }
+                
+                // Only include PSK if user entered one
+                if (psk) {
+                    channelData.psk = psk;
+                }
+                
+                channels.push(channelData);
             }
             
             // Collect LoRa configuration
