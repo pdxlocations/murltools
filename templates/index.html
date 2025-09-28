@@ -1366,7 +1366,7 @@
                 const presetTxEnabled = document.getElementById('preset-tx-enabled').checked;
                 const presetRxBoostedGain = document.getElementById('preset-rx-boosted-gain').checked;
                 const presetRegion = document.getElementById('preset-region').value;
-                const frequencySlot = parseInt(document.getElementById('frequency-slot').value);
+                const frequencySlot = parseInt(document.getElementById('preset-frequency-slot').value);
                 
                 loraConfig = {
                     use_preset: true,
@@ -1562,8 +1562,11 @@
             document.getElementById('tx-power').value = '20';
             document.getElementById('region').value = 'US';
             
-            // Reset common frequency slot
-            document.getElementById('frequency-slot').value = '0';
+            // Reset frequency slot fields
+            const presetFreqSlot = document.getElementById('preset-frequency-slot');
+            const advancedFreqSlot = document.getElementById('frequency-slot');
+            if (presetFreqSlot) presetFreqSlot.value = '0';
+            if (advancedFreqSlot) advancedFreqSlot.value = '0';
             
             encodeResult.style.display = 'none';
             encodeLoading.style.display = 'none';
@@ -1973,9 +1976,20 @@
                 }
             }
             
-            // Load common frequency slot (applies to both preset and manual modes)
+            // Load frequency slot based on current mode
             if (loraConfig.channel_num !== undefined) {
-                document.getElementById('frequency-slot').value = loraConfig.channel_num.toString();
+                const usePresets = document.getElementById('use-lora-presets').checked;
+                if (usePresets) {
+                    const presetFreqSlot = document.getElementById('preset-frequency-slot');
+                    if (presetFreqSlot) {
+                        presetFreqSlot.value = loraConfig.channel_num.toString();
+                    }
+                } else {
+                    const advancedFreqSlot = document.getElementById('frequency-slot');
+                    if (advancedFreqSlot) {
+                        advancedFreqSlot.value = loraConfig.channel_num.toString();
+                    }
+                }
             }
         }
         
