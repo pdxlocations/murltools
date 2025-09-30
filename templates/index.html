@@ -885,31 +885,139 @@
             let html = '<div class="success">';
             html += '<h3>✅ Successfully Decoded</h3>';
             
-            // Create channel summaries
-            if (data.type === 'ChannelSet' && data.channels) {
-                data.channels.forEach((channel, index) => {
-                    html += createChannelSummary(channel, index);
-                });
-            } else if (data.type === 'SingleChannel' && data.channel) {
-                html += createChannelSummary(data.channel, 0);
+            // Create channel summaries based on the actual decoder response format
+            if (data.Config && data.Config.settings) {
+                // ChannelSet format - multiple channels
+                if (Array.isArray(data.Config.settings)) {
+                    data.Config.settings.forEach((channelSettings, index) => {
+                        const channel = {
+                            settings: channelSettings,
+                            role: index === 0 ? 'PRIMARY' : 'SECONDARY',
+                            index: index
+                        };
+                        html += createChannelSummary(channel, index);
+                    });
+                } else {
+                    // Single channel format
+                    const channel = {
+                        settings: data.Config.settings,
+                        role: data.Config.role || 'PRIMARY',
+                        index: data.Config.index || 0
+                    };
+                    html += createChannelSummary(channel, 0);
+                }
+            } else if (data.Config) {
+                // Handle other possible config formats
+                html += '<div class="channel-summary">';
+                html += '<div class="channel-header">Decoded Configuration</div>';
+                html += '<div class="channel-details">';
+                html += '<p>Configuration decoded but format not recognized for detailed display.</p>';
+                html += '</div>';
+                html += '</div>';
             }
             
             // Full JSON data with Load Settings button
             html += '<div class="result-json">';
             html += '<strong>Full Decoded Data:</strong>';
             html += '<div style="margin-bottom: 10px;">';
+            
+            // Create ordered JSON for display
+            const orderedData = orderJsonForDisplay(data);
+            
             html += '<button class="copy-button copy-json-btn" data-json="' + 
-                    JSON.stringify(data, null, 2).replace(/"/g, '&quot;') + '">📋 Copy JSON</button>';
+                    JSON.stringify(orderedData, null, 2).replace(/"/g, '&quot;') + '">📋 Copy JSON</button>';
             html += '<button class="copy-button load-settings-btn" style="background-color: #f39c12; margin-left: 10px;" data-config="' + 
                     btoa(JSON.stringify(data)) + '">🔧 Load into Create URL</button>';
             html += '</div>';
-            html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            html += '<pre>' + JSON.stringify(orderedData, null, 2) + '</pre>';
             html += '</div>';
             
             html += '</div>';
             return html;
         }
 
+        function orderJsonForDisplay(data) {
+            // Create a new object with fields in logical order
+            const ordered = {};
+            
+            // Always show success and url first
+            if (data.success !== undefined) ordered.success = data.success;
+            if (data.url) ordered.url = data.url;
+            
+            // Then the main config data
+            if (data.Config) {
+                ordered.Config = {};
+                
+                // LoRa config first (radio settings)
+                if (data.Config.lora_config) {
+                    ordered.Config.lora_config = {};
+                    const lora = data.Config.lora_config;
+                    
+                    // Logical order for LoRa settings
+                    if (lora.use_preset !== undefined) ordered.Config.lora_config.use_preset = lora.use_preset;
+                    if (lora.modem_preset) ordered.Config.lora_config.modem_preset = lora.modem_preset;
+                    if (lora.region) ordered.Config.lora_config.region = lora.region;
+                    if (lora.channel_num !== undefined) ordered.Config.lora_config.channel_num = lora.channel_num;
+                    if (lora.hop_limit !== undefined) ordered.Config.lora_config.hop_limit = lora.hop_limit;
+                    if (lora.tx_enabled !== undefined) ordered.Config.lora_config.tx_enabled = lora.tx_enabled;
+                    if (lora.tx_power !== undefined) ordered.Config.lora_config.tx_power = lora.tx_power;
+                    if (lora.sx126x_rx_boosted_gain !== undefined) ordered.Config.lora_config.sx126x_rx_boosted_gain = lora.sx126x_rx_boosted_gain;
+                    
+                    // Advanced settings
+                    if (lora.bandwidth !== undefined) ordered.Config.lora_config.bandwidth = lora.bandwidth;
+                    if (lora.spread_factor !== undefined) ordered.Config.lora_config.spread_factor = lora.spread_factor;
+                    if (lora.coding_rate !== undefined) ordered.Config.lora_config.coding_rate = lora.coding_rate;
+                    if (lora.frequency_offset !== undefined) ordered.Config.lora_config.frequency_offset = lora.frequency_offset;
+                    if (lora.override_frequency !== undefined) ordered.Config.lora_config.override_frequency = lora.override_frequency;
+                }
+                
+                // Channel settings second
+                if (data.Config.settings) {
+                    ordered.Config.settings = data.Config.settings.map(channelSettings => {
+                        const orderedChannel = {};
+                        
+                        // Basic channel info
+                        if (channelSettings.name) orderedChannel.name = channelSettings.name;
+                        if (channelSettings.psk) orderedChannel.psk = channelSettings.psk;
+                        
+                        // Position and module settings
+                        if (channelSettings.module_settings) {
+                            orderedChannel.module_settings = {};
+                            if (channelSettings.module_settings.position_precision !== undefined) {
+                                orderedChannel.module_settings.position_precision = channelSettings.module_settings.position_precision;
+                            }
+                            if (channelSettings.module_settings.is_client_muted !== undefined) {
+                                orderedChannel.module_settings.is_client_muted = channelSettings.module_settings.is_client_muted;
+                            }
+                        }
+                        
+                        // Channel behavior settings
+                        if (channelSettings.uplink_enabled !== undefined) orderedChannel.uplink_enabled = channelSettings.uplink_enabled;
+                        if (channelSettings.downlink_enabled !== undefined) orderedChannel.downlink_enabled = channelSettings.downlink_enabled;
+                        if (channelSettings.mute !== undefined) orderedChannel.mute = channelSettings.mute;
+                        
+                        return orderedChannel;
+                    });
+                }
+                
+                // Add any other Config fields that weren't handled
+                Object.keys(data.Config).forEach(key => {
+                    if (!ordered.Config[key]) {
+                        ordered.Config[key] = data.Config[key];
+                    }
+                });
+            }
+            
+            // Add any other top-level fields
+            Object.keys(data).forEach(key => {
+                if (!ordered[key]) {
+                    ordered[key] = data[key];
+                }
+            });
+            
+            return ordered;
+        }
+        
         function createChannelSummary(channel, index) {
             let html = '<div class="channel-summary">';
             html += '<div class="channel-header">Channel ' + index + ' (' + channel.role + ')</div>';
@@ -928,6 +1036,46 @@
                     html += '<div class="detail-label">PSK</div>';
                     html += '<div class="detail-value">' + channel.settings.psk + '</div>';
                     html += '</div>';
+                }
+                
+                // Display uplink/downlink settings
+                if (channel.settings.uplink_enabled !== undefined) {
+                    html += '<div class="detail-item">';
+                    html += '<div class="detail-label">Uplink Enabled</div>';
+                    html += '<div class="detail-value">' + (channel.settings.uplink_enabled ? '✅ Yes' : '❌ No') + '</div>';
+                    html += '</div>';
+                }
+                
+                if (channel.settings.downlink_enabled !== undefined) {
+                    html += '<div class="detail-item">';
+                    html += '<div class="detail-label">Downlink Enabled</div>';
+                    html += '<div class="detail-value">' + (channel.settings.downlink_enabled ? '✅ Yes' : '❌ No') + '</div>';
+                    html += '</div>';
+                }
+                
+                // Display mute setting
+                if (channel.settings.mute !== undefined) {
+                    html += '<div class="detail-item">';
+                    html += '<div class="detail-label">Channel Muted</div>';
+                    html += '<div class="detail-value">' + (channel.settings.mute ? '✅ Yes' : '❌ No') + '</div>';
+                    html += '</div>';
+                }
+                
+                // Display module settings
+                if (channel.settings.module_settings) {
+                    if (channel.settings.module_settings.position_precision !== undefined) {
+                        html += '<div class="detail-item">';
+                        html += '<div class="detail-label">Position Precision</div>';
+                        html += '<div class="detail-value">' + channel.settings.module_settings.position_precision + ' bits</div>';
+                        html += '</div>';
+                    }
+                    
+                    if (channel.settings.module_settings.is_client_muted !== undefined) {
+                        html += '<div class="detail-item">';
+                        html += '<div class="detail-label">Client Muted</div>';
+                        html += '<div class="detail-value">' + (channel.settings.module_settings.is_client_muted ? '✅ Yes' : '❌ No') + '</div>';
+                        html += '</div>';
+                    }
                 }
                 
                 if (channel.settings.modem_config) {
@@ -1289,48 +1437,108 @@
                     </div>
                     
                     <div class="input-group">
-                        <label for="channel-${i}-precision">Position Precision (bits):</label>
-                        <select id="channel-${i}-precision">
-                            <option value="1">1 - Very low precision (~10,000+ km)</option>
-                            <option value="2">2 - Extremely low (~5,000 km)</option>
-                            <option value="3">3 - Very low (~2,500 km)</option>
-                            <option value="4">4 - Low (~1,250 km)</option>
-                            <option value="5">5 - Low (~625 km)</option>
-                            <option value="6">6 - Medium-low (~312 km)</option>
-                            <option value="7">7 - Medium-low (~156 km)</option>
-                            <option value="8">8 - Medium (~78 km)</option>
-                            <option value="9">9 - Medium (~39 km)</option>
-                            <option value="10">10 - Medium (~19 km)</option>
-                            <option value="11">11 - Medium-high (~10 km)</option>
-                            <option value="12">12 - Medium-high (~5 km)</option>
-                            <option value="13">13 - High (~2.5 km)</option>
-                            <option value="14">14 - High (~1.2 km)</option>
-                            <option value="15">15 - High (~610 m)</option>
-                            <option value="16">16 - Very high (~305 m)</option>
-                            <option value="17">17 - Very high (~152 m)</option>
-                            <option value="18">18 - Very high (~76 m)</option>
-                            <option value="19">19 - Extremely high (~38 m)</option>
-                            <option value="20">20 - Extremely high (~19 m)</option>
-                            <option value="21">21 - Extremely high (~10 m)</option>
-                            <option value="22">22 - Ultra high (~5 m)</option>
-                            <option value="23">23 - Ultra high (~2.4 m)</option>
-                            <option value="24">24 - Ultra high (~1.2 m)</option>
-                            <option value="25">25 - Maximum (~60 cm)</option>
-                            <option value="26">26 - Maximum (~30 cm)</option>
-                            <option value="27">27 - Maximum (~15 cm)</option>
-                            <option value="28">28 - Maximum (~7 cm)</option>
-                            <option value="29">29 - Maximum (~4 cm)</option>
-                            <option value="30">30 - Maximum (~2 cm)</option>
-                            <option value="31">31 - Maximum (~1 cm)</option>
-                            <option value="32" selected>32 - Full precision (~0.5 cm)</option>
-                        </select>
-                        <small style="color: #7f8c8d; font-size: 12px;">Bits of precision for location sharing (1-32). Higher values = more precise but less private.</small>
+                        <label>
+                            <input type="checkbox" id="channel-${i}-position-enabled" checked /> Position Enabled
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">Allow position sharing on this channel</small>
+                    </div>
+                    
+                    <div id="channel-${i}-position-settings" class="input-group" style="margin-left: 20px;">
+                        <label>
+                            <input type="checkbox" id="channel-${i}-precise-location" checked /> Precise Location
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">Full precision (32 bits, ~0.5cm accuracy). Uncheck for approximate location.</small>
+                        
+                        <div id="channel-${i}-approximate-settings" style="display: none; margin-top: 10px;">
+                            <label for="channel-${i}-precision-slider">Approximate Location Precision:</label>
+                            <div style="margin: 10px 0;">
+                                <input type="range" id="channel-${i}-precision-slider" min="10" max="19" value="13" step="1" style="width: 100%; margin: 5px 0;" />
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #7f8c8d; margin-top: 5px; position: relative; height: 32px;">
+                                    <span style="position: absolute; left: 0; text-align: left;">More Private<br>(~19km)</span>
+                                    <span id="channel-${i}-precision-display" style="position: absolute; left: 50%; transform: translateX(-50%); text-align: center; font-weight: 600; color: #2c3e50;">13 bits (~2.5km)</span>
+                                    <span style="position: absolute; right: 0; text-align: right;">More Precise<br>(~38m)</span>
+                                </div>
+                            </div>
+                            <small style="color: #7f8c8d; font-size: 12px; display: block; margin-top: 5px;">Balance between location precision and privacy</small>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="channel-${i}-client-muted" /> Client Muted
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">Mute this channel on phone/client apps (useful for noisy channels)</small>
+                    </div>
+                    
+                    <h5 style="margin: 20px 0 10px 0; color: #34495e;">Advanced Settings</h5>
+                    
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="channel-${i}-uplink" /> Uplink Enabled
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">Send messages to internet via gateway nodes</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="channel-${i}-downlink" /> Downlink Enabled
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">Receive messages from internet via gateway nodes</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="channel-${i}-mute" /> Mute Channel
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">Disable notifications/alerts for this channel</small>
                     </div>
                     
                     <input type="hidden" id="channel-${i}-role" value="${roleClass}" />
                 `;
                 
                 channelsContainer.appendChild(channelDiv);
+                
+                // Add event listeners for position controls
+                const positionEnabled = document.getElementById(`channel-${i}-position-enabled`);
+                const positionSettings = document.getElementById(`channel-${i}-position-settings`);
+                const preciseLocation = document.getElementById(`channel-${i}-precise-location`);
+                const approximateSettings = document.getElementById(`channel-${i}-approximate-settings`);
+                const precisionSlider = document.getElementById(`channel-${i}-precision-slider`);
+                const precisionDisplay = document.getElementById(`channel-${i}-precision-display`);
+                
+                // Toggle position settings visibility
+                positionEnabled.addEventListener('change', function() {
+                    positionSettings.style.display = this.checked ? 'block' : 'none';
+                });
+                
+                // Toggle between precise and approximate
+                preciseLocation.addEventListener('change', function() {
+                    approximateSettings.style.display = this.checked ? 'none' : 'block';
+                });
+                
+                // Update precision display when slider changes
+                precisionSlider.addEventListener('input', function() {
+                    const bits = parseInt(this.value);
+                    const meters = Math.round(23905787.925008 * Math.pow(0.5, bits));
+                    let distanceStr;
+                    if (meters >= 1000) {
+                        distanceStr = (meters / 1000).toFixed(1) + 'km';
+                    } else {
+                        distanceStr = meters + 'm';
+                    }
+                    precisionDisplay.textContent = `${bits} bits (~${distanceStr})`;
+                });
+                
+                // Initialize precision display
+                const initialBits = parseInt(precisionSlider.value);
+                const initialMeters = Math.round(23905787.925008 * Math.pow(0.5, initialBits));
+                let initialDistanceStr;
+                if (initialMeters >= 1000) {
+                    initialDistanceStr = (initialMeters / 1000).toFixed(1) + 'km';
+                } else {
+                    initialDistanceStr = initialMeters + 'm';
+                }
+                precisionDisplay.textContent = `${initialBits} bits (~${initialDistanceStr})`;
             }
         }
         
@@ -1343,7 +1551,25 @@
                 const name = document.getElementById(`channel-${i}-name`).value.trim();
                 const psk = document.getElementById(`channel-${i}-psk`).value.trim();
                 const role = document.getElementById(`channel-${i}-role`).value;
-                const positionPrecision = parseInt(document.getElementById(`channel-${i}-precision`).value);
+                
+                // Handle position precision based on new controls
+                const positionEnabled = document.getElementById(`channel-${i}-position-enabled`).checked;
+                const preciseLocation = document.getElementById(`channel-${i}-precise-location`).checked;
+                const precisionSlider = document.getElementById(`channel-${i}-precision-slider`);
+                
+                let positionPrecision;
+                if (!positionEnabled) {
+                    positionPrecision = 0; // Position disabled
+                } else if (preciseLocation) {
+                    positionPrecision = 32; // Full precision
+                } else {
+                    positionPrecision = parseInt(precisionSlider.value); // Approximate precision
+                }
+                
+                const clientMuted = document.getElementById(`channel-${i}-client-muted`).checked;
+                const uplinkEnabled = document.getElementById(`channel-${i}-uplink`).checked;
+                const downlinkEnabled = document.getElementById(`channel-${i}-downlink`).checked;
+                const mute = document.getElementById(`channel-${i}-mute`).checked;
                 
                 const channelData = {
                     role: role,
@@ -1351,6 +1577,11 @@
                         position_precision: positionPrecision
                     }
                 };
+                
+                // Add is_client_muted to module_settings if checked
+                if (clientMuted) {
+                    channelData.module_settings.is_client_muted = true;
+                }
                 
                 // Only include name if user actually entered one
                 if (name) {
@@ -1360,6 +1591,19 @@
                 // Only include PSK if user entered one
                 if (psk) {
                     channelData.psk = psk;
+                }
+                
+                // Include boolean flags if they're true
+                if (uplinkEnabled) {
+                    channelData.uplink_enabled = true;
+                }
+                
+                if (downlinkEnabled) {
+                    channelData.downlink_enabled = true;
+                }
+                
+                if (mute) {
+                    channelData.mute = true;
                 }
                 
                 channels.push(channelData);
@@ -1496,13 +1740,16 @@
                     url: data.url
                 };
                 
+                // Create ordered JSON for display
+                const orderedConfigData = orderJsonForDisplay(configData);
+                
                 html += '<div class="result-json">';
                 html += '<strong>Generated Configuration JSON:</strong>';
                 html += '<div style="margin-bottom: 10px;">';
                 html += '<button class="copy-button copy-json-btn" data-json="' + 
-                        JSON.stringify(configData, null, 2).replace(/"/g, '&quot;') + '">📋 Copy JSON</button>';
+                        JSON.stringify(orderedConfigData, null, 2).replace(/"/g, '&quot;') + '">📋 Copy JSON</button>';
                 html += '</div>';
-                html += '<pre>' + JSON.stringify(configData, null, 2) + '</pre>';
+                html += '<pre>' + JSON.stringify(orderedConfigData, null, 2) + '</pre>';
                 html += '</div>';
             }
             
@@ -1774,17 +2021,101 @@
                 }
             }
             
-            // Load position precision from module_settings (or set default)
-            const precisionField = document.getElementById(`channel-${channelIndex}-precision`);
-            if (precisionField) {
-                if (channelSettings.module_settings && channelSettings.module_settings.position_precision !== undefined) {
-                    // Use the precision from decoded data
-                    precisionField.value = channelSettings.module_settings.position_precision.toString();
-                    console.log(`Loaded position precision ${channelSettings.module_settings.position_precision} for channel ${channelIndex}`);
+            // Load position precision using new controls
+            // Note: protobuf MessageToDict may omit position_precision if it's 0 (default value)
+            const positionEnabled = document.getElementById(`channel-${channelIndex}-position-enabled`);
+            const positionSettings = document.getElementById(`channel-${channelIndex}-position-settings`);
+            const preciseLocation = document.getElementById(`channel-${channelIndex}-precise-location`);
+            const approximateSettings = document.getElementById(`channel-${channelIndex}-approximate-settings`);
+            const precisionSlider = document.getElementById(`channel-${channelIndex}-precision-slider`);
+            const precisionDisplay = document.getElementById(`channel-${channelIndex}-precision-display`);
+            
+            let precision = 32; // Default to enabled with precise location
+            
+            if (channelSettings.module_settings && channelSettings.module_settings.position_precision !== undefined) {
+                precision = channelSettings.module_settings.position_precision;
+                console.log(`Loading position precision ${precision} for channel ${channelIndex}`);
+            } else if (channelSettings.module_settings) {
+                // module_settings exists but no position_precision field - likely means 0 (disabled)
+                precision = 0;
+                console.log(`Position precision not found in module_settings for channel ${channelIndex}, assuming disabled (0)`);
+            } else {
+                // No module_settings at all - could be disabled or default
+                // Check if this might be from an older/simpler configuration
+                precision = 32; // Default to enabled
+                console.log(`No module_settings found for channel ${channelIndex}, defaulting to enabled (32)`);
+            }
+            
+            if (precision === 0) {
+                // Position disabled
+                if (positionEnabled) positionEnabled.checked = false;
+                if (positionSettings) positionSettings.style.display = 'none';
+            } else {
+                // Position enabled
+                if (positionEnabled) positionEnabled.checked = true;
+                if (positionSettings) positionSettings.style.display = 'block';
+                
+                if (precision === 32) {
+                    // Precise location (full precision)
+                    if (preciseLocation) preciseLocation.checked = true;
+                    if (approximateSettings) approximateSettings.style.display = 'none';
                 } else {
-                    // Set to sensible default precision since it wasn't preserved in encoding
-                    precisionField.value = '32';  // Default to full precision (32 bits)
-                    console.log(`Set default position precision (32) for channel ${channelIndex} - not found in decoded data`);
+                    // Approximate location
+                    if (preciseLocation) preciseLocation.checked = false;
+                    if (approximateSettings) approximateSettings.style.display = 'block';
+                    
+                    // Set slider value and update display
+                    if (precisionSlider) {
+                        precisionSlider.value = precision.toString();
+                        
+                        // Update display text
+                        const meters = Math.round(23905787.925008 * Math.pow(0.5, precision));
+                        let distanceStr;
+                        if (meters >= 1000) {
+                            distanceStr = (meters / 1000).toFixed(1) + 'km';
+                        } else {
+                            distanceStr = meters + 'm';
+                        }
+                        if (precisionDisplay) {
+                            precisionDisplay.textContent = `${precision} bits (~${distanceStr})`;
+                        }
+                    }
+                }
+            }
+            
+            // Load client muted from module_settings
+            if (channelSettings.module_settings && channelSettings.module_settings.is_client_muted !== undefined) {
+                const clientMutedField = document.getElementById(`channel-${channelIndex}-client-muted`);
+                if (clientMutedField) {
+                    clientMutedField.checked = channelSettings.module_settings.is_client_muted;
+                    console.log(`Set client muted to ${channelSettings.module_settings.is_client_muted} for channel ${channelIndex}`);
+                }
+            }
+            
+            // Load uplink enabled
+            if (channelSettings.uplink_enabled !== undefined) {
+                const uplinkField = document.getElementById(`channel-${channelIndex}-uplink`);
+                if (uplinkField) {
+                    uplinkField.checked = channelSettings.uplink_enabled;
+                    console.log(`Set uplink enabled to ${channelSettings.uplink_enabled} for channel ${channelIndex}`);
+                }
+            }
+            
+            // Load downlink enabled
+            if (channelSettings.downlink_enabled !== undefined) {
+                const downlinkField = document.getElementById(`channel-${channelIndex}-downlink`);
+                if (downlinkField) {
+                    downlinkField.checked = channelSettings.downlink_enabled;
+                    console.log(`Set downlink enabled to ${channelSettings.downlink_enabled} for channel ${channelIndex}`);
+                }
+            }
+            
+            // Load mute flag
+            if (channelSettings.mute !== undefined) {
+                const muteField = document.getElementById(`channel-${channelIndex}-mute`);
+                if (muteField) {
+                    muteField.checked = channelSettings.mute;
+                    console.log(`Set mute to ${channelSettings.mute} for channel ${channelIndex}`);
                 }
             }
             

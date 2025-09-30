@@ -307,17 +307,20 @@ class MeshtasticEncoder:
                         # If all else fails, use as UTF-8 bytes (not recommended but fallback)
                         settings.psk = psk_str.encode('utf-8')[:32]  # Limit to 32 bytes
                 
-                
                 # Set uplink/downlink enabled flags
                 if 'uplink_enabled' in channel_data:
                     settings.uplink_enabled = bool(channel_data['uplink_enabled'])
                 if 'downlink_enabled' in channel_data:
                     settings.downlink_enabled = bool(channel_data['downlink_enabled'])
                 
-                # Set module settings if provided - TRY EXPLICIT APPROACH
+                # Set mute flag
+                if 'mute' in channel_data:
+                    settings.mute = bool(channel_data['mute'])
+                
+                # Always create module settings to ensure position_precision is explicit
+                module_settings = channel_pb2.ModuleSettings()
+                
                 if 'module_settings' in channel_data:
-                    module_settings = channel_pb2.ModuleSettings()
-                    
                     if 'position_precision' in channel_data['module_settings']:
                         precision = int(channel_data['module_settings']['position_precision'])
                         module_settings.position_precision = precision
@@ -325,9 +328,12 @@ class MeshtasticEncoder:
                     # Handle client muted if present
                     if 'is_client_muted' in channel_data['module_settings']:
                         module_settings.is_client_muted = bool(channel_data['module_settings']['is_client_muted'])
-                    
-                    # Use direct assignment instead of CopyFrom
-                    settings.module_settings.CopyFrom(module_settings)
+                else:
+                    # Default: position enabled with full precision
+                    module_settings.position_precision = 32
+                
+                # Always set module settings
+                settings.module_settings.CopyFrom(module_settings)
                 
                 channel.settings.CopyFrom(settings)
                 channel_set.settings.append(channel.settings)
@@ -491,21 +497,32 @@ class MeshtasticEncoder:
                     # If all else fails, use as UTF-8 bytes (not recommended but fallback)
                     settings.psk = psk_str.encode('utf-8')[:32]  # Limit to 32 bytes
             
-            
             # Set uplink/downlink enabled flags
             if 'uplink_enabled' in channel_data:
                 settings.uplink_enabled = bool(channel_data['uplink_enabled'])
             if 'downlink_enabled' in channel_data:
                 settings.downlink_enabled = bool(channel_data['downlink_enabled'])
             
-            # Set module settings if provided
+            # Set mute flag
+            if 'mute' in channel_data:
+                settings.mute = bool(channel_data['mute'])
+            
+            # Always create module settings to ensure position_precision is explicit
+            module_settings = channel_pb2.ModuleSettings()
+            
             if 'module_settings' in channel_data:
-                module_settings = channel_pb2.ModuleSettings()
-                
                 if 'position_precision' in channel_data['module_settings']:
                     module_settings.position_precision = int(channel_data['module_settings']['position_precision'])
                 
-                settings.module_settings.CopyFrom(module_settings)
+                # Handle client muted if present
+                if 'is_client_muted' in channel_data['module_settings']:
+                    module_settings.is_client_muted = bool(channel_data['module_settings']['is_client_muted'])
+            else:
+                # Default: position enabled with full precision
+                module_settings.position_precision = 32
+            
+            # Always set module settings
+            settings.module_settings.CopyFrom(module_settings)
             
             channel.settings.CopyFrom(settings)
             
