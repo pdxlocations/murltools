@@ -1588,9 +1588,12 @@
                     channelData.name = name;
                 }
                 
-                // Only include PSK if user entered one
+                // Handle PSK - use default "AQ==" if empty
                 if (psk) {
                     channelData.psk = psk;
+                } else {
+                    // Fill in default PSK when empty
+                    channelData.psk = "AQ==";
                 }
                 
                 // Include boolean flags if they're true
