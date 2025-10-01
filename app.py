@@ -8,10 +8,10 @@ import base64
 import json
 import io
 from urllib.parse import urlparse, parse_qs
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from flask import Flask, render_template, request, jsonify
-from meshtastic import channel_pb2, apponly_pb2, mesh_pb2, config_pb2
+from meshtastic.protobuf import channel_pb2, apponly_pb2, mesh_pb2, config_pb2
 from google.protobuf.message import DecodeError
 from google.protobuf.json_format import MessageToDict
 from PIL import Image
@@ -19,6 +19,8 @@ from pyzbar import pyzbar
 import cv2
 import numpy as np
 import qrcode
+from qrcode.constants import ERROR_CORRECT_L
+
 from io import BytesIO
 
 app = Flask(__name__)
@@ -135,7 +137,7 @@ class MeshtasticDecoder:
             except Exception:
                 raise ValueError(f"Failed to decode base64 data: {e}")
     
-    def _try_node_decoders(self, decoded_data: bytes, url: str, decode_attempts: list) -> Dict[str, Any]:
+    def _try_node_decoders(self, decoded_data: bytes, url: str, decode_attempts: list) -> Optional[Dict[str, Any]]:
         """Try node-related protobuf message types"""
         
         # Try NodeInfo
@@ -198,7 +200,7 @@ class MeshtasticDecoder:
         
         return None
     
-    def _try_channel_decoders(self, decoded_data: bytes, url: str, decode_attempts: list) -> Dict[str, Any]:
+    def _try_channel_decoders(self, decoded_data: bytes, url: str, decode_attempts: list) -> Optional[Dict[str, Any]]:
         """Try channel-related protobuf message types"""
         
         # Try to decode as ChannelSet first
@@ -260,7 +262,7 @@ class MeshtasticDecoder:
 class MeshtasticEncoder:
     """Handles encoding of Meshtastic channel configurations into URLs and QR codes"""
     
-    def encode_channel_set(self, channels_data: List[Dict[str, Any]], lora_config_data: Dict[str, Any] = None) -> Dict[str, Any]:
+    def encode_channel_set(self, channels_data: List[Dict[str, Any]], lora_config_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Encode multiple channels into a ChannelSet and create Meshtastic URL
         
@@ -580,7 +582,7 @@ class MeshtasticEncoder:
             # Create QR code
             qr = qrcode.QRCode(
                 version=1,  # Controls the size of the QR Code
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                error_correction=ERROR_CORRECT_L,
                 box_size=10,
                 border=4,
             )
