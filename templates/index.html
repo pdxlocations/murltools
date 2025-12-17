@@ -986,15 +986,14 @@
                             if (channelSettings.module_settings.position_precision !== undefined) {
                                 orderedChannel.module_settings.position_precision = channelSettings.module_settings.position_precision;
                             }
-                            if (channelSettings.module_settings.is_client_muted !== undefined) {
-                                orderedChannel.module_settings.is_client_muted = channelSettings.module_settings.is_client_muted;
-                            }
+                        if (channelSettings.module_settings.is_muted !== undefined) {
+                            orderedChannel.module_settings.is_muted = channelSettings.module_settings.is_muted;
+                        }
                         }
                         
                         // Channel behavior settings
                         if (channelSettings.uplink_enabled !== undefined) orderedChannel.uplink_enabled = channelSettings.uplink_enabled;
                         if (channelSettings.downlink_enabled !== undefined) orderedChannel.downlink_enabled = channelSettings.downlink_enabled;
-                        if (channelSettings.mute !== undefined) orderedChannel.mute = channelSettings.mute;
                         
                         return orderedChannel;
                     });
@@ -1053,13 +1052,6 @@
                     html += '</div>';
                 }
                 
-                // Display mute setting
-                if (channel.settings.mute !== undefined) {
-                    html += '<div class="detail-item">';
-                    html += '<div class="detail-label">Channel Muted</div>';
-                    html += '<div class="detail-value">' + (channel.settings.mute ? '✅ Yes' : '❌ No') + '</div>';
-                    html += '</div>';
-                }
                 
                 // Display module settings
                 if (channel.settings.module_settings) {
@@ -1070,10 +1062,10 @@
                         html += '</div>';
                     }
                     
-                    if (channel.settings.module_settings.is_client_muted !== undefined) {
+                    if (channel.settings.module_settings.is_muted !== undefined) {
                         html += '<div class="detail-item">';
-                        html += '<div class="detail-label">Client Muted</div>';
-                        html += '<div class="detail-value">' + (channel.settings.module_settings.is_client_muted ? '✅ Yes' : '❌ No') + '</div>';
+                        html += '<div class="detail-label">Channel Muted</div>';
+                        html += '<div class="detail-value">' + (channel.settings.module_settings.is_muted ? '✅ Yes' : '❌ No') + '</div>';
                         html += '</div>';
                     }
                 }
@@ -1463,13 +1455,7 @@
                         </div>
                     </div>
                     
-                    <div class="input-group">
-                        <label>
-                            <input type="checkbox" id="channel-${i}-client-muted" /> Client Muted
-                        </label>
-                        <small style="color: #7f8c8d; font-size: 12px;">Mute this channel on phone/client apps (useful for noisy channels)</small>
-                    </div>
-                    
+
                     <h5 style="margin: 20px 0 10px 0; color: #34495e;">Advanced Settings</h5>
                     
                     <div class="input-group">

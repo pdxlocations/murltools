@@ -315,21 +315,24 @@ class MeshtasticEncoder:
                 if 'downlink_enabled' in channel_data:
                     settings.downlink_enabled = bool(channel_data['downlink_enabled'])
                 
-                # Set mute flag
-                if 'mute' in channel_data:
-                    settings.mute = bool(channel_data['mute'])
-                
-                # Always create module settings to ensure position_precision is explicit
+                # Always create module settings to ensure position_precision and is_muted are explicit
                 module_settings = channel_pb2.ModuleSettings()
-                
-                if 'module_settings' in channel_data:
-                    if 'position_precision' in channel_data['module_settings']:
-                        precision = int(channel_data['module_settings']['position_precision'])
-                        module_settings.position_precision = precision
-                    
-                    # Handle client muted if present
-                    if 'is_client_muted' in channel_data['module_settings']:
-                        module_settings.is_client_muted = bool(channel_data['module_settings']['is_client_muted'])
+
+                if 'module_settings' in channel_data and isinstance(channel_data['module_settings'], dict):
+                    ms = channel_data['module_settings']
+
+                    if 'position_precision' in ms and ms['position_precision'] is not None:
+                        module_settings.position_precision = int(ms['position_precision'])
+                    else:
+                        # Default: position enabled with full precision
+                        module_settings.position_precision = 32
+
+                    # Per-channel mute flag (matches meshtastic/channel.proto: ModuleSettings.is_muted)
+                    # Accept a few common input keys for backward compatibility.
+                    for key in ('is_muted', 'muted', 'mute'):
+                        if key in ms:
+                            module_settings.is_muted = bool(ms[key])
+                            break
                 else:
                     # Default: position enabled with full precision
                     module_settings.position_precision = 32
@@ -505,20 +508,23 @@ class MeshtasticEncoder:
             if 'downlink_enabled' in channel_data:
                 settings.downlink_enabled = bool(channel_data['downlink_enabled'])
             
-            # Set mute flag
-            if 'mute' in channel_data:
-                settings.mute = bool(channel_data['mute'])
-            
-            # Always create module settings to ensure position_precision is explicit
+            # Always create module settings to ensure position_precision and is_muted are explicit
             module_settings = channel_pb2.ModuleSettings()
-            
-            if 'module_settings' in channel_data:
-                if 'position_precision' in channel_data['module_settings']:
-                    module_settings.position_precision = int(channel_data['module_settings']['position_precision'])
-                
-                # Handle client muted if present
-                if 'is_client_muted' in channel_data['module_settings']:
-                    module_settings.is_client_muted = bool(channel_data['module_settings']['is_client_muted'])
+
+            if 'module_settings' in channel_data and isinstance(channel_data['module_settings'], dict):
+                ms = channel_data['module_settings']
+
+                if 'position_precision' in ms and ms['position_precision'] is not None:
+                    module_settings.position_precision = int(ms['position_precision'])
+                else:
+                    # Default: position enabled with full precision
+                    module_settings.position_precision = 32
+
+                # Per-channel mute flag (matches meshtastic/channel.proto: ModuleSettings.is_muted)
+                for key in ('is_muted', 'muted', 'mute'):
+                    if key in ms:
+                        module_settings.is_muted = bool(ms[key])
+                        break
             else:
                 # Default: position enabled with full precision
                 module_settings.position_precision = 32
