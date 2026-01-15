@@ -1016,6 +1016,30 @@ def encode_nodeinfo():
     result = encoder.encode_nodeinfo(node_data)
     return jsonify(result)
 
+@app.route('/nodeinfo_enums', methods=['GET'])
+def nodeinfo_enums():
+    """Return enum names for NodeInfo-related fields"""
+    try:
+        user_descriptor = mesh_pb2.User.DESCRIPTOR
+        hw_model_field = user_descriptor.fields_by_name.get('hw_model')
+        role_field = user_descriptor.fields_by_name.get('role')
+
+        hw_model_values = []
+        role_values = []
+
+        if hw_model_field and hw_model_field.enum_type:
+            hw_model_values = [value.name for value in hw_model_field.enum_type.values]
+        if role_field and role_field.enum_type:
+            role_values = [value.name for value in role_field.enum_type.values]
+
+        return jsonify({
+            'success': True,
+            'hw_model': hw_model_values,
+            'role': role_values
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/health')
 def health():
     """Health check endpoint"""

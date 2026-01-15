@@ -827,8 +827,9 @@
 
                 <div class="input-group">
                     <label for="node-hw-model">Hardware Model:</label>
-                    <input type="text" id="node-hw-model" placeholder="TRACKER_T1000_E or 23" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Optional enum name or numeric value.</small>
+                    <select id="node-hw-model">
+                        <option value="">Select hardware model (optional)</option>
+                    </select>
                 </div>
 
                 <div class="input-group">
@@ -845,8 +846,9 @@
 
                 <div class="input-group">
                     <label for="node-role">Role:</label>
-                    <input type="text" id="node-role" placeholder="CLIENT_MUTE or 1" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Optional enum name or numeric value.</small>
+                    <select id="node-role">
+                        <option value="">Select role (optional)</option>
+                    </select>
                 </div>
 
                 <div class="input-group">
@@ -2152,12 +2154,58 @@
                 if (userData.long_name) nodeLongNameInput.value = String(userData.long_name);
                 if (userData.short_name) nodeShortNameInput.value = String(userData.short_name);
                 if (userData.hw_model !== undefined && userData.hw_model !== null) {
-                    nodeHwModelInput.value = String(userData.hw_model);
+                    const hwModelValue = String(userData.hw_model);
+                    ensureSelectOption(nodeHwModelInput, hwModelValue);
+                    nodeHwModelInput.value = hwModelValue;
                 }
                 if (userData.role !== undefined && userData.role !== null) {
-                    nodeRoleInput.value = String(userData.role);
+                    const roleValue = String(userData.role);
+                    ensureSelectOption(nodeRoleInput, roleValue);
+                    nodeRoleInput.value = roleValue;
                 }
                 if (userData.public_key) nodePublicKeyInput.value = String(userData.public_key);
+            }
+        }
+
+        function ensureSelectOption(selectEl, value) {
+            if (!value) {
+                return;
+            }
+
+            const hasOption = Array.from(selectEl.options).some(option => option.value === value);
+            if (!hasOption) {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                selectEl.appendChild(option);
+            }
+        }
+
+        function populateEnumSelect(selectEl, enumValues) {
+            if (!Array.isArray(enumValues)) {
+                return;
+            }
+
+            enumValues.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                selectEl.appendChild(option);
+            });
+        }
+
+        async function initNodeInfoEnums() {
+            try {
+                const response = await fetch('/nodeinfo_enums');
+                const data = await response.json();
+                if (!data.success) {
+                    return;
+                }
+
+                populateEnumSelect(nodeHwModelInput, data.hw_model);
+                populateEnumSelect(nodeRoleInput, data.role);
+            } catch (error) {
+                console.error('Failed to load NodeInfo enums:', error);
             }
         }
 
@@ -2682,6 +2730,7 @@
         // Focus on input when page loads
         window.addEventListener('load', () => {
             urlInput.focus();
+            initNodeInfoEnums();
         });
     </script>
 </body>
