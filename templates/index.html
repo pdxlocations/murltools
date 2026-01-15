@@ -336,6 +336,47 @@
         .tab-content.active {
             display: block;
         }
+
+        /* Create URL Sub-tab Styles */
+        .subtab-nav {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+            margin: 10px 0 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .subtab-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            background-color: transparent;
+            color: #7f8c8d;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .subtab-btn:hover {
+            color: #2c3e50;
+            background-color: #eef2f5;
+        }
+
+        .subtab-btn.active {
+            color: #2c3e50;
+            background-color: #ffffff;
+            border-bottom-color: #e67e22;
+        }
+
+        .subtab-content {
+            display: none;
+        }
+
+        .subtab-content.active {
+            display: block;
+        }
         
         /* Upload Area Styles */
         .upload-area {
@@ -520,117 +561,48 @@
         
         <!-- Encoding Tab -->
         <div id="encode-tab" class="tab-content">
-            <div class="input-group">
-                <h3>📡 Multi-Channel Configuration</h3>
-                <p>Create a Meshtastic URL with up to 8 channels. Channel 0 is Primary, channels 1-7 are Secondary.</p>
+            <div class="subtab-nav">
+                <button class="subtab-btn active" data-subtab="encode-channels-tab">📡 Channel &amp; Modem URL</button>
+                <button class="subtab-btn" data-subtab="encode-nodeinfo-tab">🛰️ NodeInfo URL</button>
             </div>
-            
-            <div class="input-group">
-                <label for="num-channels">Number of Channels:</label>
-                <select id="num-channels">
-                    <option value="1" selected>1 Channel</option>
-                    <option value="2">2 Channels</option>
-                    <option value="3">3 Channels</option>
-                    <option value="4">4 Channels</option>
-                    <option value="5">5 Channels</option>
-                    <option value="6">6 Channels</option>
-                    <option value="7">7 Channels</option>
-                    <option value="8">8 Channels</option>
-                </select>
-            </div>
-            
-            <div id="channels-container">
-                <!-- Channel forms will be dynamically generated here -->
-            </div>
-            
-            
-            <div class="input-group">
-                <label>
-                    <input type="checkbox" id="use-lora-presets" checked /> Use LoRa Presets (applies to all channels)
-                </label>
-                <small style="color: #7f8c8d; font-size: 12px;">Enable to use predefined LoRa settings for all channels. Leave unchecked to configure manually.</small>
-            </div>
-            
-            
-            <div id="lora-presets-section" class="input-group" style="display: block;">
-                <label for="lora-preset">LoRa Preset:</label>
-                <select id="lora-preset">
-                    <option value="LONG_FAST" selected>LongFast (Default)</option>
-                    <option value="LONG_SLOW">LongSlow</option>
-                    <option value="VERY_LONG_SLOW">VeryLongSlow</option>
-                    <option value="MEDIUM_SLOW">MediumSlow</option>
-                    <option value="MEDIUM_FAST">MediumFast</option>
-                    <option value="SHORT_SLOW">ShortSlow</option>
-                    <option value="SHORT_FAST">ShortFast</option>
-                    <option value="LONG_MODERATE">LongModerate</option>
-                    <option value="SHORT_TURBO">ShortTurbo</option>
-                </select>
-                <small style="color: #7f8c8d; font-size: 12px;">Controls radio modulation parameters (bandwidth, spread factor, coding rate)</small>
-                
-                <h5 style="margin: 20px 0 10px 0; color: #34495e;">Operational Settings</h5>
-                
+
+            <div id="encode-channels-tab" class="subtab-content active">
                 <div class="input-group">
-                    <label for="preset-frequency-slot">Frequency Slot:</label>
-                    <input type="number" id="preset-frequency-slot" value="0" min="0" max="255" step="1" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Channel number (0 = auto-select based on channel name hash, 1-255 = specific slot)</small>
+                    <h3>📡 Multi-Channel Configuration</h3>
+                    <p>Create a Meshtastic URL with up to 8 channels. Channel 0 is Primary, channels 1-7 are Secondary.</p>
                 </div>
                 
                 <div class="input-group">
-                    <label for="preset-hop-limit">Hop Limit:</label>
-                    <input type="number" id="preset-hop-limit" value="3" min="0" max="7" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Maximum number of hops (0-7)</small>
-                </div>
-                
-                <div class="input-group">
-                    <label for="preset-tx-power">TX Power (dBm):</label>
-                    <input type="number" id="preset-tx-power" min="0" max="30" value="30" step="1" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Transmit power in dBm (0-30)</small>
-                </div>
-                
-                <div class="input-group">
-                    <label>
-                        <input type="checkbox" id="preset-tx-enabled" checked /> Transmit Enabled
-                    </label>
-                    <small style="color: #7f8c8d; font-size: 12px;">Enable transmission (uncheck for receive-only mode)</small>
-                </div>
-                
-                <div class="input-group">
-                    <label>
-                        <input type="checkbox" id="preset-rx-boosted-gain" checked/> RX Boosted Gain (SX126x)
-                    </label>
-                    <small style="color: #7f8c8d; font-size: 12px;">Boost receive sensitivity for SX126x radios</small>
-                </div>
-                
-                <div class="input-group">
-                    <label for="preset-region">Region:</label>
-                    <select id="preset-region">
-                        <option value="US" selected>US (902-928 MHz)</option>
-                        <option value="EU_433">EU 433 MHz (433.05-434.79 MHz)</option>
-                        <option value="EU_868">EU 868 MHz (863-870 MHz)</option>
-                        <option value="CN">China (470-510 MHz)</option>
-                        <option value="JP">Japan (920-923 MHz)</option>
-                        <option value="ANZ">Australia/NZ (915-928 MHz)</option>
-                        <option value="KR">Korea (920-923 MHz)</option>
-                        <option value="TW">Taiwan (920-925 MHz)</option>
-                        <option value="RU">Russia (868-870 MHz)</option>
-                        <option value="IN">India (865-867 MHz)</option>
-                        <option value="NZ_865">NZ 865 MHz (864-868 MHz)</option>
-                        <option value="TH">Thailand (920-925 MHz)</option>
-                        <option value="LORA_24">LoRa 2.4 GHz (2400-2483.5 MHz)</option>
-                        <option value="UA_433">Ukraine 433 MHz (433.05-434.79 MHz)</option>
-                        <option value="UA_868">Ukraine 868 MHz (863-870 MHz)</option>
+                    <label for="num-channels">Number of Channels:</label>
+                    <select id="num-channels">
+                        <option value="1" selected>1 Channel</option>
+                        <option value="2">2 Channels</option>
+                        <option value="3">3 Channels</option>
+                        <option value="4">4 Channels</option>
+                        <option value="5">5 Channels</option>
+                        <option value="6">6 Channels</option>
+                        <option value="7">7 Channels</option>
+                        <option value="8">8 Channels</option>
                     </select>
-                    <small style="color: #7f8c8d; font-size: 12px;">Select the regulatory region for frequency compliance</small>
                 </div>
-            </div>
-            
-            <div id="lora-advanced-section" class="input-group" style="display: none;">
-                <h4>Advanced LoRa Settings (applies to all channels)</h4>
                 
-                <div id="modem-preset-section" class="input-group" style="display: none;">
-                    <label for="modem-preset">Modem Preset:</label>
-                    <select id="modem-preset">
-                        <option value="LONG_FAST" selected>LongFast</option>
+                <div id="channels-container">
+                    <!-- Channel forms will be dynamically generated here -->
+                </div>
+                
+                
+                <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="use-lora-presets" checked /> Use LoRa Presets (applies to all channels)
+                    </label>
+                    <small style="color: #7f8c8d; font-size: 12px;">Enable to use predefined LoRa settings for all channels. Leave unchecked to configure manually.</small>
+                </div>
+                
+                
+                <div id="lora-presets-section" class="input-group" style="display: block;">
+                    <label for="lora-preset">LoRa Preset:</label>
+                    <select id="lora-preset">
+                        <option value="LONG_FAST" selected>LongFast (Default)</option>
                         <option value="LONG_SLOW">LongSlow</option>
                         <option value="VERY_LONG_SLOW">VeryLongSlow</option>
                         <option value="MEDIUM_SLOW">MediumSlow</option>
@@ -640,119 +612,261 @@
                         <option value="LONG_MODERATE">LongModerate</option>
                         <option value="SHORT_TURBO">ShortTurbo</option>
                     </select>
+                    <small style="color: #7f8c8d; font-size: 12px;">Controls radio modulation parameters (bandwidth, spread factor, coding rate)</small>
+                    
+                    <h5 style="margin: 20px 0 10px 0; color: #34495e;">Operational Settings</h5>
+                    
+                    <div class="input-group">
+                        <label for="preset-frequency-slot">Frequency Slot:</label>
+                        <input type="number" id="preset-frequency-slot" value="0" min="0" max="255" step="1" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Channel number (0 = auto-select based on channel name hash, 1-255 = specific slot)</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="preset-hop-limit">Hop Limit:</label>
+                        <input type="number" id="preset-hop-limit" value="3" min="0" max="7" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Maximum number of hops (0-7)</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="preset-tx-power">TX Power (dBm):</label>
+                        <input type="number" id="preset-tx-power" min="0" max="30" value="30" step="1" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Transmit power in dBm (0-30)</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="preset-tx-enabled" checked /> Transmit Enabled
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">Enable transmission (uncheck for receive-only mode)</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="preset-rx-boosted-gain" checked/> RX Boosted Gain (SX126x)
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">Boost receive sensitivity for SX126x radios</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="preset-region">Region:</label>
+                        <select id="preset-region">
+                            <option value="US" selected>US (902-928 MHz)</option>
+                            <option value="EU_433">EU 433 MHz (433.05-434.79 MHz)</option>
+                            <option value="EU_868">EU 868 MHz (863-870 MHz)</option>
+                            <option value="CN">China (470-510 MHz)</option>
+                            <option value="JP">Japan (920-923 MHz)</option>
+                            <option value="ANZ">Australia/NZ (915-928 MHz)</option>
+                            <option value="KR">Korea (920-923 MHz)</option>
+                            <option value="TW">Taiwan (920-925 MHz)</option>
+                            <option value="RU">Russia (868-870 MHz)</option>
+                            <option value="IN">India (865-867 MHz)</option>
+                            <option value="NZ_865">NZ 865 MHz (864-868 MHz)</option>
+                            <option value="TH">Thailand (920-925 MHz)</option>
+                            <option value="LORA_24">LoRa 2.4 GHz (2400-2483.5 MHz)</option>
+                            <option value="UA_433">Ukraine 433 MHz (433.05-434.79 MHz)</option>
+                            <option value="UA_868">Ukraine 868 MHz (863-870 MHz)</option>
+                        </select>
+                        <small style="color: #7f8c8d; font-size: 12px;">Select the regulatory region for frequency compliance</small>
+                    </div>
                 </div>
                 
-                <div class="input-group">
-                    <label for="bandwidth">Bandwidth (kHz):</label>
-                    <select id="bandwidth">
-                        <option value="31">31</option>
-                        <option value="62">62</option>
-                        <option value="125">125</option>
-                        <option value="250" selected>250</option>
-                        <option value="500">500</option>
-                    </select>
+                <div id="lora-advanced-section" class="input-group" style="display: none;">
+                    <h4>Advanced LoRa Settings (applies to all channels)</h4>
+                    
+                    <div id="modem-preset-section" class="input-group" style="display: none;">
+                        <label for="modem-preset">Modem Preset:</label>
+                        <select id="modem-preset">
+                            <option value="LONG_FAST" selected>LongFast</option>
+                            <option value="LONG_SLOW">LongSlow</option>
+                            <option value="VERY_LONG_SLOW">VeryLongSlow</option>
+                            <option value="MEDIUM_SLOW">MediumSlow</option>
+                            <option value="MEDIUM_FAST">MediumFast</option>
+                            <option value="SHORT_SLOW">ShortSlow</option>
+                            <option value="SHORT_FAST">ShortFast</option>
+                            <option value="LONG_MODERATE">LongModerate</option>
+                            <option value="SHORT_TURBO">ShortTurbo</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="bandwidth">Bandwidth (kHz):</label>
+                        <select id="bandwidth">
+                            <option value="31">31</option>
+                            <option value="62">62</option>
+                            <option value="125">125</option>
+                            <option value="250" selected>250</option>
+                            <option value="500">500</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="spread-factor">Spread Factor:</label>
+                        <select id="spread-factor">
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11" selected>11</option>
+                            <option value="12">12</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="coding-rate">Coding Rate:</label>
+                        <select id="coding-rate">
+                            <option value="5" selected>4/5</option>
+                            <option value="6">4/6</option>
+                            <option value="7">4/7</option>
+                            <option value="8">4/8</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="frequency-offset">Frequency Offset:</label>
+                        <input type="number" id="frequency-offset" value="0" step="1" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Frequency offset in Hz (typically 0)</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="frequency-slot">Frequency Slot:</label>
+                        <input type="number" id="frequency-slot" value="0" min="0" max="255" step="1" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Channel number (0 = auto-select based on channel name hash, 1-255 = specific slot)</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="hop-limit">Hop Limit:</label>
+                        <input type="number" id="hop-limit" value="3" min="0" max="7" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Maximum number of hops (0-7)</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="override-frequency">Override Frequency (MHz):</label>
+                        <input type="number" id="override-frequency" step="0.001" placeholder="e.g., 915.0 or 868.3" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Override the default frequency for your region (optional)</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="tx-enabled" checked /> Transmit Enabled
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">Enable transmission (uncheck to make this node receive-only)</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="rx-boosted-gain" checked /> RX Boosted Gain (SX126x)
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">Boost receive sensitivity for SX126x radios (may increase power consumption)</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="tx-power">TX Power (dBm):</label>
+                        <input type="number" id="tx-power" min="0" max="30" value="30" step="1" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Transmit power in dBm (0-30, higher values = more range but more power consumption)</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="region">Region:</label>
+                        <select id="region">
+                            <option value="US" selected>US (902-928 MHz)</option>
+                            <option value="EU_433">EU 433 MHz (433.05-434.79 MHz)</option>
+                            <option value="EU_868">EU 868 MHz (863-870 MHz)</option>
+                            <option value="CN">China (470-510 MHz)</option>
+                            <option value="JP">Japan (920-923 MHz)</option>
+                            <option value="ANZ">Australia/NZ (915-928 MHz)</option>
+                            <option value="KR">Korea (920-923 MHz)</option>
+                            <option value="TW">Taiwan (920-925 MHz)</option>
+                            <option value="RU">Russia (868-870 MHz)</option>
+                            <option value="IN">India (865-867 MHz)</option>
+                            <option value="NZ_865">NZ 865 MHz (864-868 MHz)</option>
+                            <option value="TH">Thailand (920-925 MHz)</option>
+                            <option value="LORA_24">LoRa 2.4 GHz (2400-2483.5 MHz)</option>
+                            <option value="UA_433">Ukraine 433 MHz (433.05-434.79 MHz)</option>
+                            <option value="UA_868">Ukraine 868 MHz (863-870 MHz)</option>
+                        </select>
+                        <small style="color: #7f8c8d; font-size: 12px;">Select the regulatory region for frequency compliance</small>
+                    </div>
                 </div>
                 
-                <div class="input-group">
-                    <label for="spread-factor">Spread Factor:</label>
-                    <select id="spread-factor">
-                        <option value="7">7</option>
-                        <option value="8">8</option>
-                        <option value="9">9</option>
-                        <option value="10">10</option>
-                        <option value="11" selected>11</option>
-                        <option value="12">12</option>
-                    </select>
+                <div class="button-group">
+                    <button id="encode-btn">🚀 Generate URL &amp; QR Code</button>
+                    <button id="clear-encode-btn">🗑️ Clear Form</button>
                 </div>
                 
-                <div class="input-group">
-                    <label for="coding-rate">Coding Rate:</label>
-                    <select id="coding-rate">
-                        <option value="5" selected>4/5</option>
-                        <option value="6">4/6</option>
-                        <option value="7">4/7</option>
-                        <option value="8">4/8</option>
-                    </select>
+                <div class="loading" id="encode-loading" style="display: none;">
+                    <p>🔄 Generating URL and QR code...</p>
                 </div>
                 
-                <div class="input-group">
-                    <label for="frequency-offset">Frequency Offset:</label>
-                    <input type="number" id="frequency-offset" value="0" step="1" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Frequency offset in Hz (typically 0)</small>
-                </div>
-                
-                <div class="input-group">
-                    <label for="frequency-slot">Frequency Slot:</label>
-                    <input type="number" id="frequency-slot" value="0" min="0" max="255" step="1" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Channel number (0 = auto-select based on channel name hash, 1-255 = specific slot)</small>
-                </div>
-                
-                <div class="input-group">
-                    <label for="hop-limit">Hop Limit:</label>
-                    <input type="number" id="hop-limit" value="3" min="0" max="7" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Maximum number of hops (0-7)</small>
-                </div>
-                
-                <div class="input-group">
-                    <label for="override-frequency">Override Frequency (MHz):</label>
-                    <input type="number" id="override-frequency" step="0.001" placeholder="e.g., 915.0 or 868.3" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Override the default frequency for your region (optional)</small>
-                </div>
-                
-                <div class="input-group">
-                    <label>
-                        <input type="checkbox" id="tx-enabled" checked /> Transmit Enabled
-                    </label>
-                    <small style="color: #7f8c8d; font-size: 12px;">Enable transmission (uncheck to make this node receive-only)</small>
-                </div>
-                
-                <div class="input-group">
-                    <label>
-                        <input type="checkbox" id="rx-boosted-gain" checked /> RX Boosted Gain (SX126x)
-                    </label>
-                    <small style="color: #7f8c8d; font-size: 12px;">Boost receive sensitivity for SX126x radios (may increase power consumption)</small>
-                </div>
-                
-                <div class="input-group">
-                    <label for="tx-power">TX Power (dBm):</label>
-                    <input type="number" id="tx-power" min="0" max="30" value="30" step="1" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Transmit power in dBm (0-30, higher values = more range but more power consumption)</small>
-                </div>
-                
-                <div class="input-group">
-                    <label for="region">Region:</label>
-                    <select id="region">
-                        <option value="US" selected>US (902-928 MHz)</option>
-                        <option value="EU_433">EU 433 MHz (433.05-434.79 MHz)</option>
-                        <option value="EU_868">EU 868 MHz (863-870 MHz)</option>
-                        <option value="CN">China (470-510 MHz)</option>
-                        <option value="JP">Japan (920-923 MHz)</option>
-                        <option value="ANZ">Australia/NZ (915-928 MHz)</option>
-                        <option value="KR">Korea (920-923 MHz)</option>
-                        <option value="TW">Taiwan (920-925 MHz)</option>
-                        <option value="RU">Russia (868-870 MHz)</option>
-                        <option value="IN">India (865-867 MHz)</option>
-                        <option value="NZ_865">NZ 865 MHz (864-868 MHz)</option>
-                        <option value="TH">Thailand (920-925 MHz)</option>
-                        <option value="LORA_24">LoRa 2.4 GHz (2400-2483.5 MHz)</option>
-                        <option value="UA_433">Ukraine 433 MHz (433.05-434.79 MHz)</option>
-                        <option value="UA_868">Ukraine 868 MHz (863-870 MHz)</option>
-                    </select>
-                    <small style="color: #7f8c8d; font-size: 12px;">Select the regulatory region for frequency compliance</small>
+                <div class="result" id="encode-result" style="display: none;">
+                    <!-- Encoding results will be populated here -->
                 </div>
             </div>
-            
-            <div class="button-group">
-                <button id="encode-btn">🚀 Generate URL & QR Code</button>
-                <button id="clear-encode-btn">🗑️ Clear Form</button>
-            </div>
-            
-            <div class="loading" id="encode-loading" style="display: none;">
-                <p>🔄 Generating URL and QR code...</p>
-            </div>
-            
-            <div class="result" id="encode-result" style="display: none;">
-                <!-- Encoding results will be populated here -->
+
+            <div id="encode-nodeinfo-tab" class="subtab-content">
+                <div class="input-group">
+                    <h3>🛰️ NodeInfo URL</h3>
+                    <p>Create a Meshtastic node info URL for sharing basic node identity.</p>
+                </div>
+
+                <div class="input-group">
+                    <label for="node-num">Node Number:</label>
+                    <input type="text" id="node-num" placeholder="12345678 or 0x1a2b3c" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Optional. Use decimal or 0x hex.</small>
+                </div>
+
+                <div class="input-group">
+                    <h4 style="margin: 0 0 10px 0; color: #34495e;">User Identity</h4>
+                </div>
+
+                <div class="input-group">
+                    <label for="node-user-id">User ID:</label>
+                    <input type="text" id="node-user-id" placeholder="abcd1234" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Optional identifier string for the node.</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="node-hw-model">Hardware Model:</label>
+                    <input type="text" id="node-hw-model" placeholder="TRACKER_T1000_E or 23" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Optional enum name or numeric value.</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="node-long-name">Long Name:</label>
+                    <input type="text" id="node-long-name" placeholder="Trail Relay Node" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Optional descriptive name.</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="node-short-name">Short Name:</label>
+                    <input type="text" id="node-short-name" placeholder="TRAIL" maxlength="4" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Optional 4-character label.</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="node-role">Role:</label>
+                    <input type="text" id="node-role" placeholder="CLIENT_MUTE or 1" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Optional enum name or numeric value.</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="node-public-key">Public Key:</label>
+                    <input type="text" id="node-public-key" placeholder="Base64 public key" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Optional base64-encoded public key.</small>
+                </div>
+
+                <div class="button-group">
+                    <button id="encode-nodeinfo-btn">🚀 Generate NodeInfo URL &amp; QR Code</button>
+                    <button id="clear-nodeinfo-btn">🗑️ Clear Form</button>
+                </div>
+
+                <div class="loading" id="nodeinfo-loading" style="display: none;">
+                    <p>🔄 Generating NodeInfo URL and QR code...</p>
+                </div>
+
+                <div class="result" id="nodeinfo-result" style="display: none;">
+                    <!-- NodeInfo encoding results will be populated here -->
+                </div>
             </div>
         </div>
         
@@ -1154,6 +1268,35 @@
                 document.getElementById(targetTab).classList.add('active');
             });
         });
+
+        // Create URL sub-tab functionality
+        const encodeSubtabBtns = document.querySelectorAll('.subtab-btn');
+        const encodeSubtabContents = document.querySelectorAll('.subtab-content');
+
+        function setActiveEncodeSubtab(subtabId) {
+            encodeSubtabBtns.forEach(btn => btn.classList.remove('active'));
+            encodeSubtabContents.forEach(content => content.classList.remove('active'));
+
+            const targetBtn = document.querySelector(`.subtab-btn[data-subtab="${subtabId}"]`);
+            const targetContent = document.getElementById(subtabId);
+            if (targetBtn && targetContent) {
+                targetBtn.classList.add('active');
+                targetContent.classList.add('active');
+            }
+        }
+
+        encodeSubtabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetSubtab = btn.getAttribute('data-subtab');
+                const currentActiveSubtab = document.querySelector('.subtab-btn.active')?.getAttribute('data-subtab');
+
+                if (targetSubtab === currentActiveSubtab) {
+                    return;
+                }
+
+                setActiveEncodeSubtab(targetSubtab);
+            });
+        });
         
         // QR Code upload functionality
         const uploadArea = document.getElementById('upload-area');
@@ -1374,6 +1517,17 @@
         const clearEncodeBtn = document.getElementById('clear-encode-btn');
         const encodeLoading = document.getElementById('encode-loading');
         const encodeResult = document.getElementById('encode-result');
+        const nodeNumInput = document.getElementById('node-num');
+        const nodeUserIdInput = document.getElementById('node-user-id');
+        const nodeHwModelInput = document.getElementById('node-hw-model');
+        const nodeLongNameInput = document.getElementById('node-long-name');
+        const nodeShortNameInput = document.getElementById('node-short-name');
+        const nodeRoleInput = document.getElementById('node-role');
+        const nodePublicKeyInput = document.getElementById('node-public-key');
+        const encodeNodeinfoBtn = document.getElementById('encode-nodeinfo-btn');
+        const clearNodeinfoBtn = document.getElementById('clear-nodeinfo-btn');
+        const nodeinfoLoading = document.getElementById('nodeinfo-loading');
+        const nodeinfoResult = document.getElementById('nodeinfo-result');
         
         // Initialize with 1 channel
         generateChannelForms(1);
@@ -1399,6 +1553,8 @@
         
         encodeBtn.addEventListener('click', encodeChannels);
         clearEncodeBtn.addEventListener('click', clearEncodeForm);
+        encodeNodeinfoBtn.addEventListener('click', encodeNodeInfo);
+        clearNodeinfoBtn.addEventListener('click', clearNodeInfoForm);
         
         function generateChannelForms(numChannels) {
             channelsContainer.innerHTML = '';
@@ -1688,6 +1844,97 @@
                 encodeBtn.disabled = false;
             }
         }
+
+        function parseNodeNumber(value) {
+            if (!value) {
+                return null;
+            }
+
+            const parsed = Number.parseInt(value, 0);
+            return Number.isNaN(parsed) ? null : parsed;
+        }
+
+        async function encodeNodeInfo() {
+            const nodeNumValue = nodeNumInput.value.trim();
+            const userIdRaw = nodeUserIdInput.value;
+            const hwModelRaw = nodeHwModelInput.value;
+            const longNameRaw = nodeLongNameInput.value;
+            const shortNameRaw = nodeShortNameInput.value;
+            const roleRaw = nodeRoleInput.value;
+            const publicKeyRaw = nodePublicKeyInput.value;
+
+            const nodeNum = parseNodeNumber(nodeNumValue);
+            if (nodeNumValue && nodeNum === null) {
+                alert('Node number must be a valid decimal or hex value.');
+                return;
+            }
+
+            if (
+                nodeNum === null &&
+                !userIdRaw.trim() &&
+                !hwModelRaw.trim() &&
+                !longNameRaw.trim() &&
+                !shortNameRaw.trim() &&
+                !roleRaw.trim() &&
+                !publicKeyRaw.trim()
+            ) {
+                alert('Provide at least a node number or one user field.');
+                return;
+            }
+
+            const nodeData = {};
+            if (nodeNum !== null) {
+                nodeData.num = nodeNum;
+            }
+
+            const userData = {};
+            if (userIdRaw.trim()) {
+                userData.id = userIdRaw;
+            }
+            if (hwModelRaw.trim()) {
+                userData.hw_model = hwModelRaw;
+            }
+            if (longNameRaw.trim()) {
+                userData.long_name = longNameRaw;
+            }
+            if (shortNameRaw.trim()) {
+                userData.short_name = shortNameRaw;
+            }
+            if (roleRaw.trim()) {
+                userData.role = roleRaw;
+            }
+            if (publicKeyRaw.trim()) {
+                userData.public_key = publicKeyRaw;
+            }
+            if (Object.keys(userData).length > 0) {
+                nodeData.user = userData;
+            }
+
+            nodeinfoLoading.style.display = 'block';
+            nodeinfoResult.style.display = 'none';
+            encodeNodeinfoBtn.disabled = true;
+
+            try {
+                const response = await fetch('/encode_nodeinfo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ node: nodeData })
+                });
+
+                const data = await response.json();
+                displayNodeinfoResult(data);
+            } catch (error) {
+                displayNodeinfoResult({
+                    success: false,
+                    error: 'Network error: ' + error.message
+                });
+            } finally {
+                nodeinfoLoading.style.display = 'none';
+                encodeNodeinfoBtn.disabled = false;
+            }
+        }
         
         function displayEncodeResult(data) {
             encodeResult.style.display = 'block';
@@ -1765,6 +2012,72 @@
             html += '</div>';
             return html;
         }
+
+        function displayNodeinfoResult(data) {
+            nodeinfoResult.style.display = 'block';
+
+            if (data.success) {
+                nodeinfoResult.innerHTML = createNodeinfoSuccessHTML(data);
+            } else {
+                nodeinfoResult.innerHTML = createErrorHTML(data);
+            }
+        }
+
+        function createNodeinfoSuccessHTML(data) {
+            let html = '<div class="success">';
+            html += '<h3>✅ Successfully Generated</h3>';
+
+            html += '<div class="result-json">';
+            html += '<strong>Generated NodeInfo URL:</strong>';
+            html += `<button class="copy-button copy-url-btn" data-url="${data.url.replace(/"/g, '&quot;')}">📋 Copy URL</button>`;
+            html += `<div class="qr-data">${data.url}</div>`;
+            html += '</div>';
+
+            if (data.qr_code && data.qr_code.success) {
+                html += '<div class="result-json">';
+                html += '<strong>QR Code:</strong>';
+                html += '<div style="text-align: center; margin: 15px 0;">';
+                html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; max-width: 300px; height: auto;" />`;
+                html += '</div>';
+                html += `<button class="copy-button" onclick="downloadQRCode('${data.qr_code.image_base64}', 'meshtastic-nodeinfo.png')">💾 Download QR Code</button>`;
+                html += '</div>';
+            }
+
+            const displayData = {
+                success: data.success,
+                url: data.url
+            };
+
+            if (data.Node) displayData.Node = data.Node;
+            if (data.User) displayData.User = data.User;
+            if (data.Position) displayData.Position = data.Position;
+            if (data.MyNodeInfo) displayData.MyNodeInfo = data.MyNodeInfo;
+            if (data.encoded_size !== undefined) displayData.encoded_size = data.encoded_size;
+
+            html += '<div class="result-json">';
+            html += '<strong>Generated NodeInfo JSON:</strong>';
+            html += '<div style="margin-bottom: 10px;">';
+            html += '<button class="copy-button copy-json-btn" data-json="' +
+                    JSON.stringify(displayData, null, 2).replace(/"/g, '&quot;') + '">📋 Copy JSON</button>';
+            html += '</div>';
+            html += '<pre>' + JSON.stringify(displayData, null, 2) + '</pre>';
+            html += '</div>';
+
+            if (data.encoded_size !== undefined) {
+                html += '<div class="channel-summary">';
+                html += '<div class="channel-header">Generation Details</div>';
+                html += '<div class="channel-details">';
+                html += '<div class="detail-item">';
+                html += '<div class="detail-label">Encoded Size</div>';
+                html += `<div class="detail-value">${data.encoded_size} bytes</div>`;
+                html += '</div>';
+                html += '</div>';
+                html += '</div>';
+            }
+
+            html += '</div>';
+            return html;
+        }
         
         function downloadQRCode(base64Data, filename) {
             const link = document.createElement('a');
@@ -1816,7 +2129,38 @@
             encodeResult.style.display = 'none';
             encodeLoading.style.display = 'none';
         }
-        
+
+        function clearNodeInfoForm() {
+            nodeNumInput.value = '';
+            nodeUserIdInput.value = '';
+            nodeHwModelInput.value = '';
+            nodeLongNameInput.value = '';
+            nodeShortNameInput.value = '';
+            nodeRoleInput.value = '';
+            nodePublicKeyInput.value = '';
+            nodeinfoResult.style.display = 'none';
+            nodeinfoLoading.style.display = 'none';
+        }
+
+        function populateNodeInfoFields(nodeData, userData) {
+            if (nodeData && nodeData.num !== undefined && nodeData.num !== null) {
+                nodeNumInput.value = String(nodeData.num);
+            }
+
+            if (userData) {
+                if (userData.id) nodeUserIdInput.value = String(userData.id);
+                if (userData.long_name) nodeLongNameInput.value = String(userData.long_name);
+                if (userData.short_name) nodeShortNameInput.value = String(userData.short_name);
+                if (userData.hw_model !== undefined && userData.hw_model !== null) {
+                    nodeHwModelInput.value = String(userData.hw_model);
+                }
+                if (userData.role !== undefined && userData.role !== null) {
+                    nodeRoleInput.value = String(userData.role);
+                }
+                if (userData.public_key) nodePublicKeyInput.value = String(userData.public_key);
+            }
+        }
+
         // Load settings from decoded data into Create URL form
         function loadSettingsFromDecoded(decodedData, button) {
             try {
@@ -1848,17 +2192,30 @@
                     // Activate encode tab
                     encodeTabBtn.classList.add('active');
                     document.getElementById('encode-tab').classList.add('active');
+                    setActiveEncodeSubtab('encode-channels-tab');
                 }
                 
-                // Extract the configuration data first
+                const nodeInfo = decodedData.Node || null;
+                const userInfo = decodedData.User || null;
+                const myNodeInfo = decodedData.MyNodeInfo || null;
                 const config = decodedData.Config || decodedData;
                 console.log('Loading config:', config);
                 
                 // Add a small delay to ensure tab switching is complete
                 setTimeout(() => {
-                    // Clear existing form after tab switch
+                    if (nodeInfo || userInfo || myNodeInfo) {
+                        setActiveEncodeSubtab('encode-nodeinfo-tab');
+                        clearNodeInfoForm();
+
+                        const nodeData = nodeInfo || myNodeInfo || {};
+                        const userData = (nodeInfo && nodeInfo.user) || (myNodeInfo && myNodeInfo.user) || userInfo || null;
+                        populateNodeInfoFields(nodeData, userData);
+                        return;
+                    }
+
+                    setActiveEncodeSubtab('encode-channels-tab');
                     clearEncodeForm();
-                    
+
                     // Handle different data structures
                     if (config.settings && Array.isArray(config.settings)) {
                         // ChannelSet format - multiple channels

@@ -262,6 +262,40 @@ class MeshtasticDecoder:
 class MeshtasticEncoder:
     """Handles encoding of Meshtastic channel configurations into URLs and QR codes"""
     
+    def _set_proto_field(self, message, field_name: str, value: Any) -> bool:
+        """Safely set a protobuf field if it exists on the message."""
+        if field_name in message.DESCRIPTOR.fields_by_name:
+            setattr(message, field_name, value)
+            return True
+        return False
+
+    def _set_proto_enum(self, message, field_name: str, value: Any) -> bool:
+        """Safely set a protobuf enum field from a name or numeric value."""
+        field = message.DESCRIPTOR.fields_by_name.get(field_name)
+        if not field or field.enum_type is None:
+            return False
+
+        enum_type = field.enum_type
+        try:
+            if isinstance(value, str):
+                value_str = value.strip()
+                if value_str.isdigit():
+                    setattr(message, field_name, int(value_str))
+                    return True
+                enum_value = enum_type.values_by_name.get(value_str)
+                if enum_value is None:
+                    enum_value = enum_type.values_by_name.get(value_str.upper())
+                if enum_value is None:
+                    enum_value = enum_type.values_by_name.get(value_str.lower())
+                if enum_value is None:
+                    return False
+                setattr(message, field_name, enum_value.number)
+                return True
+            setattr(message, field_name, int(value))
+            return True
+        except (TypeError, ValueError):
+            return False
+
     def encode_channel_set(self, channels_data: List[Dict[str, Any]], lora_config_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Encode multiple channels into a ChannelSet and create Meshtastic URL
@@ -575,6 +609,96 @@ class MeshtasticEncoder:
                 'success': False,
                 'error': f'Failed to encode single channel: {str(e)}'
             }
+
+    def encode_nodeinfo(self, node_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Encode NodeInfo into a Meshtastic node URL
+
+        Args:
+            node_data: NodeInfo configuration dictionary
+
+        Returns:
+            Dictionary containing URL, QR code data, and success status
+        """
+        try:
+            if not node_data:
+                return {
+                    'success': False,
+                    'error': 'No node data provided'
+                }
+
+            node = mesh_pb2.NodeInfo()
+            has_data = False
+
+            if 'num' in node_data and node_data['num'] is not None:
+                node_num = node_data['num']
+                if isinstance(node_num, str):
+                    node_num = int(node_num, 0)
+                self._set_proto_field(node, 'num', int(node_num))
+                has_data = True
+
+            user_data = node_data.get('user')
+            if isinstance(user_data, dict):
+                user = mesh_pb2.User()
+
+                if 'id' in user_data and user_data['id']:
+                    self._set_proto_field(user, 'id', str(user_data['id']))
+                if 'long_name' in user_data and user_data['long_name']:
+                    self._set_proto_field(user, 'long_name', str(user_data['long_name']))
+                if 'short_name' in user_data and user_data['short_name']:
+                    self._set_proto_field(user, 'short_name', str(user_data['short_name']))
+                if 'hw_model' in user_data and user_data['hw_model'] is not None:
+                    self._set_proto_enum(user, 'hw_model', user_data['hw_model'])
+                if 'role' in user_data and user_data['role'] is not None:
+                    self._set_proto_enum(user, 'role', user_data['role'])
+                if 'public_key' in user_data and user_data['public_key']:
+                    public_key_value = user_data['public_key']
+                    if isinstance(public_key_value, str):
+                        try:
+                            public_key_value = base64.b64decode(public_key_value)
+                        except (ValueError, TypeError):
+                            public_key_value = None
+                    if public_key_value:
+                        self._set_proto_field(user, 'public_key', public_key_value)
+
+                if user.ListFields():
+                    if 'user' in node.DESCRIPTOR.fields_by_name:
+                        node.user.CopyFrom(user)
+                        has_data = True
+
+            if not has_data:
+                return {
+                    'success': False,
+                    'error': 'Provide at least a node number or one user field'
+                }
+
+            protobuf_data = node.SerializeToString()
+            encoded_data = self._base64url_encode(protobuf_data)
+            url = f"https://meshtastic.org/v/#{encoded_data}"
+
+            qr_code_data = self._generate_qr_code(url)
+            decoder_instance = MeshtasticDecoder()
+            decoded_result = decoder_instance.decode_channel_url(url)
+
+            response = {
+                'success': True,
+                'url': url,
+                'qr_code': qr_code_data,
+                'encoded_size': len(protobuf_data)
+            }
+
+            if decoded_result.get('success'):
+                for key, value in decoded_result.items():
+                    if key not in ['success', 'url']:
+                        response[key] = value
+
+            return response
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to encode node info: {str(e)}'
+            }
     
     def _base64url_encode(self, data: bytes) -> str:
         """Encode bytes as base64url string"""
@@ -878,6 +1002,18 @@ def encode_channels():
             'error': 'Invalid request format. Expected "channels" array or "channel" object.'
         }), 400
     
+    return jsonify(result)
+
+@app.route('/encode_nodeinfo', methods=['POST'])
+def encode_nodeinfo():
+    """API endpoint to encode Meshtastic node info into URLs and QR codes"""
+    data = request.get_json()
+
+    if not data or 'node' not in data:
+        return jsonify({'success': False, 'error': 'No node data provided'}), 400
+
+    node_data = data['node']
+    result = encoder.encode_nodeinfo(node_data)
     return jsonify(result)
 
 @app.route('/health')
