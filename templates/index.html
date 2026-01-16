@@ -840,7 +840,7 @@
 
                 <div class="input-group">
                     <label for="node-short-name">Short Name:</label>
-                    <input type="text" id="node-short-name" placeholder="TRAIL" maxlength="4" />
+                    <input type="text" id="node-short-name" placeholder="TRN" maxlength="4" />
                     <small style="color: #7f8c8d; font-size: 12px;">Optional 4-character label.</small>
                 </div>
 
@@ -855,6 +855,20 @@
                     <label for="node-public-key">Public Key:</label>
                     <input type="text" id="node-public-key" placeholder="Base64 public key" />
                     <small style="color: #7f8c8d; font-size: 12px;">Optional base64-encoded public key.</small>
+                </div>
+
+                <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="node-is-licensed" /> Licensed Operator
+                    </label>
+                    <small style="color: #7f8c8d; font-size: 12px;">Set if this node is operated by a licensed ham.</small>
+                </div>
+
+                <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="node-is-unmessagable" /> Unmessagable
+                    </label>
+                    <small style="color: #7f8c8d; font-size: 12px;">Indicates the node cannot be messaged.</small>
                 </div>
 
                 <div class="button-group">
@@ -1526,6 +1540,8 @@
         const nodeShortNameInput = document.getElementById('node-short-name');
         const nodeRoleInput = document.getElementById('node-role');
         const nodePublicKeyInput = document.getElementById('node-public-key');
+        const nodeIsLicensedInput = document.getElementById('node-is-licensed');
+        const nodeIsUnmessagableInput = document.getElementById('node-is-unmessagable');
         const encodeNodeinfoBtn = document.getElementById('encode-nodeinfo-btn');
         const clearNodeinfoBtn = document.getElementById('clear-nodeinfo-btn');
         const nodeinfoLoading = document.getElementById('nodeinfo-loading');
@@ -1864,6 +1880,8 @@
             const shortNameRaw = nodeShortNameInput.value;
             const roleRaw = nodeRoleInput.value;
             const publicKeyRaw = nodePublicKeyInput.value;
+            const isLicensedChecked = nodeIsLicensedInput.checked;
+            const isUnmessagableChecked = nodeIsUnmessagableInput.checked;
 
             const nodeNum = parseNodeNumber(nodeNumValue);
             if (nodeNumValue && nodeNum === null) {
@@ -1878,7 +1896,9 @@
                 !longNameRaw.trim() &&
                 !shortNameRaw.trim() &&
                 !roleRaw.trim() &&
-                !publicKeyRaw.trim()
+                !publicKeyRaw.trim() &&
+                !isLicensedChecked &&
+                !isUnmessagableChecked
             ) {
                 alert('Provide at least a node number or one user field.');
                 return;
@@ -1907,6 +1927,12 @@
             }
             if (publicKeyRaw.trim()) {
                 userData.public_key = publicKeyRaw;
+            }
+            if (isLicensedChecked) {
+                userData.is_licensed = true;
+            }
+            if (isUnmessagableChecked) {
+                userData.is_unmessagable = true;
             }
             if (Object.keys(userData).length > 0) {
                 nodeData.user = userData;
@@ -2140,6 +2166,8 @@
             nodeShortNameInput.value = '';
             nodeRoleInput.value = '';
             nodePublicKeyInput.value = '';
+            nodeIsLicensedInput.checked = false;
+            nodeIsUnmessagableInput.checked = false;
             nodeinfoResult.style.display = 'none';
             nodeinfoLoading.style.display = 'none';
         }
@@ -2164,6 +2192,10 @@
                     nodeRoleInput.value = roleValue;
                 }
                 if (userData.public_key) nodePublicKeyInput.value = String(userData.public_key);
+                if (userData.is_licensed !== undefined) nodeIsLicensedInput.checked = Boolean(userData.is_licensed);
+                if (userData.is_unmessagable !== undefined) {
+                    nodeIsUnmessagableInput.checked = Boolean(userData.is_unmessagable);
+                }
             }
         }
 

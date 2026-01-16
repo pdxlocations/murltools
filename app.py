@@ -649,6 +649,8 @@ class MeshtasticEncoder:
                     self._set_proto_field(user, 'short_name', str(user_data['short_name']))
                 if 'hw_model' in user_data and user_data['hw_model'] is not None:
                     self._set_proto_enum(user, 'hw_model', user_data['hw_model'])
+                if 'is_licensed' in user_data and user_data['is_licensed'] is not None:
+                    self._set_proto_field(user, 'is_licensed', bool(user_data['is_licensed']))
                 if 'role' in user_data and user_data['role'] is not None:
                     self._set_proto_enum(user, 'role', user_data['role'])
                 if 'public_key' in user_data and user_data['public_key']:
@@ -660,6 +662,8 @@ class MeshtasticEncoder:
                             public_key_value = None
                     if public_key_value:
                         self._set_proto_field(user, 'public_key', public_key_value)
+                if 'is_unmessagable' in user_data and user_data['is_unmessagable'] is not None:
+                    self._set_proto_field(user, 'is_unmessagable', bool(user_data['is_unmessagable']))
 
                 if user.ListFields():
                     if 'user' in node.DESCRIPTOR.fields_by_name:
