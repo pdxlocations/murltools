@@ -1645,7 +1645,7 @@
                         </label>
                         <small style="color: #7f8c8d; font-size: 12px;">Receive messages from internet via gateway nodes</small>
                     </div>
-                    
+
                     <div class="input-group">
                         <label>
                             <input type="checkbox" id="channel-${i}-mute" /> Mute Channel
@@ -1726,7 +1726,8 @@
                     positionPrecision = parseInt(precisionSlider.value); // Approximate precision
                 }
                 
-                const clientMuted = document.getElementById(`channel-${i}-client-muted`).checked;
+                const clientMutedField = document.getElementById(`channel-${i}-client-muted`);
+                const clientMuted = clientMutedField ? clientMutedField.checked : false;
                 const uplinkEnabled = document.getElementById(`channel-${i}-uplink`).checked;
                 const downlinkEnabled = document.getElementById(`channel-${i}-downlink`).checked;
                 const mute = document.getElementById(`channel-${i}-mute`).checked;
