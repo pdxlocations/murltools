@@ -261,7 +261,24 @@ class MeshtasticDecoder:
 
 class MeshtasticEncoder:
     """Handles encoding of Meshtastic channel configurations into URLs and QR codes"""
-    
+
+    def _format_node_id(self, node_num: int) -> str:
+        """Format node number as Meshtastic node ID (hex with leading !)."""
+        return f"!{node_num & 0xFFFFFFFF:08x}"
+
+    def _parse_node_id(self, node_id: str) -> Optional[int]:
+        """Parse a node ID string like !0ad99a53 into an int."""
+        if not node_id:
+            return None
+        value = node_id.strip().lower()
+        if not value.startswith('!'):
+            return None
+        value = value[1:]
+        try:
+            return int(value, 16)
+        except ValueError:
+            return None
+
     def _set_proto_field(self, message, field_name: str, value: Any) -> bool:
         """Safely set a protobuf field if it exists on the message."""
         if field_name in message.DESCRIPTOR.fields_by_name:
@@ -629,20 +646,27 @@ class MeshtasticEncoder:
 
             node = mesh_pb2.NodeInfo()
             has_data = False
+            has_required_identity = False
+            node_num_value: Optional[int] = None
+            user_id_value: Optional[str] = None
 
             if 'num' in node_data and node_data['num'] is not None:
                 node_num = node_data['num']
                 if isinstance(node_num, str):
-                    node_num = int(node_num, 0)
-                self._set_proto_field(node, 'num', int(node_num))
+                    node_num = int(node_num, 10)
+                node_num_value = int(node_num)
+                self._set_proto_field(node, 'num', node_num_value)
                 has_data = True
+                has_required_identity = True
 
             user_data = node_data.get('user')
             if isinstance(user_data, dict):
                 user = mesh_pb2.User()
 
                 if 'id' in user_data and user_data['id']:
-                    self._set_proto_field(user, 'id', str(user_data['id']))
+                    user_id_value = str(user_data['id'])
+                    self._set_proto_field(user, 'id', user_id_value)
+                    has_required_identity = True
                 if 'long_name' in user_data and user_data['long_name']:
                     self._set_proto_field(user, 'long_name', str(user_data['long_name']))
                 if 'short_name' in user_data and user_data['short_name']:
@@ -673,8 +697,23 @@ class MeshtasticEncoder:
             if not has_data:
                 return {
                     'success': False,
-                    'error': 'Provide at least a node number or one user field'
+                    'error': 'Provide node number or node ID'
                 }
+
+            if not has_required_identity:
+                return {
+                    'success': False,
+                    'error': 'Provide node number or node ID'
+                }
+
+            # Auto-derive missing identity field after validation.
+            if node_num_value is not None and not user_id_value:
+                if 'user' in node.DESCRIPTOR.fields_by_name:
+                    node.user.id = self._format_node_id(node_num_value)
+            elif node_num_value is None and user_id_value:
+                derived_num = self._parse_node_id(user_id_value)
+                if derived_num is not None:
+                    node.num = derived_num
 
             protobuf_data = node.SerializeToString()
             encoded_data = self._base64url_encode(protobuf_data)

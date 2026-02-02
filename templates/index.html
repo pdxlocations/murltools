@@ -810,19 +810,30 @@
                 </div>
 
                 <div class="input-group">
-                    <label for="node-num">Node Number:</label>
-                    <input type="text" id="node-num" placeholder="12345678 or 0x1a2b3c" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Optional. Use decimal or 0x hex.</small>
+                    <h4 style="margin: 0 0 10px 0; color: #34495e;">Node Identity</h4>
+                    <small style="color: #7f8c8d; font-size: 12px;">Choose one to create the NodeInfo URL.</small>
                 </div>
 
                 <div class="input-group">
-                    <h4 style="margin: 0 0 10px 0; color: #34495e;">User Identity</h4>
+                    <label>
+                        <input type="radio" name="node-identity-choice" id="node-identity-num" value="num" checked />
+                        Node Number (decimal)
+                    </label>
+                    <div style="margin-left: 22px; margin-top: 8px;">
+                        <input type="text" id="node-num" placeholder="182032979" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Decimal only.</small>
+                    </div>
                 </div>
 
                 <div class="input-group">
-                    <label for="node-user-id">User ID:</label>
-                    <input type="text" id="node-user-id" placeholder="abcd1234" />
-                    <small style="color: #7f8c8d; font-size: 12px;">Optional identifier string for the node.</small>
+                    <label>
+                        <input type="radio" name="node-identity-choice" id="node-identity-id" value="id" />
+                        Node ID (hex with leading !)
+                    </label>
+                    <div style="margin-left: 22px; margin-top: 8px;">
+                        <input type="text" id="node-user-id" placeholder="!0ad99a53" disabled />
+                        <small style="color: #7f8c8d; font-size: 12px;">Example: !0ad99a53</small>
+                    </div>
                 </div>
 
                 <div class="input-group">
@@ -1535,6 +1546,8 @@
         const encodeResult = document.getElementById('encode-result');
         const nodeNumInput = document.getElementById('node-num');
         const nodeUserIdInput = document.getElementById('node-user-id');
+        const nodeIdentityNumRadio = document.getElementById('node-identity-num');
+        const nodeIdentityIdRadio = document.getElementById('node-identity-id');
         const nodeHwModelInput = document.getElementById('node-hw-model');
         const nodeLongNameInput = document.getElementById('node-long-name');
         const nodeShortNameInput = document.getElementById('node-short-name');
@@ -1573,6 +1586,79 @@
         clearEncodeBtn.addEventListener('click', clearEncodeForm);
         encodeNodeinfoBtn.addEventListener('click', encodeNodeInfo);
         clearNodeinfoBtn.addEventListener('click', clearNodeInfoForm);
+
+        nodeNumInput.dataset.autofilled = 'false';
+        nodeUserIdInput.dataset.autofilled = 'false';
+
+        function updateNodeIdentityMode() {
+            const useNumber = nodeIdentityNumRadio.checked;
+            nodeNumInput.disabled = !useNumber;
+            nodeUserIdInput.disabled = useNumber;
+
+            if (useNumber) {
+                if (nodeUserIdInput.dataset.autofilled === 'true') {
+                    nodeUserIdInput.value = '';
+                    nodeUserIdInput.dataset.autofilled = 'false';
+                }
+                nodeNumInput.focus();
+            } else {
+                if (nodeNumInput.dataset.autofilled === 'true') {
+                    nodeNumInput.value = '';
+                    nodeNumInput.dataset.autofilled = 'false';
+                }
+                nodeUserIdInput.focus();
+            }
+        }
+
+        nodeIdentityNumRadio.addEventListener('change', updateNodeIdentityMode);
+        nodeIdentityIdRadio.addEventListener('change', updateNodeIdentityMode);
+        updateNodeIdentityMode();
+
+        nodeNumInput.addEventListener('input', () => {
+            nodeNumInput.dataset.autofilled = 'false';
+            const rawValue = nodeNumInput.value.trim();
+            const nodeNum = parseNodeNumber(rawValue);
+
+            if (!rawValue) {
+                if (nodeUserIdInput.dataset.autofilled === 'true') {
+                    nodeUserIdInput.value = '';
+                    nodeUserIdInput.dataset.autofilled = 'false';
+                }
+                return;
+            }
+
+            if (nodeNum === null) {
+                return;
+            }
+
+            if (!nodeUserIdInput.value.trim() || nodeUserIdInput.dataset.autofilled === 'true') {
+                nodeUserIdInput.value = formatNodeIdFromNumber(nodeNum);
+                nodeUserIdInput.dataset.autofilled = 'true';
+            }
+        });
+
+        nodeUserIdInput.addEventListener('input', () => {
+            nodeUserIdInput.dataset.autofilled = 'false';
+            const rawValue = nodeUserIdInput.value.trim();
+            const nodeNum = parseNodeIdToNumber(rawValue);
+
+            if (!rawValue) {
+                if (nodeNumInput.dataset.autofilled === 'true') {
+                    nodeNumInput.value = '';
+                    nodeNumInput.dataset.autofilled = 'false';
+                }
+                return;
+            }
+
+            if (nodeNum === null) {
+                return;
+            }
+
+            if (!nodeNumInput.value.trim() || nodeNumInput.dataset.autofilled === 'true') {
+                nodeNumInput.value = nodeNum.toString(10);
+                nodeNumInput.dataset.autofilled = 'true';
+            }
+        });
         
         function generateChannelForms(numChannels) {
             channelsContainer.innerHTML = '';
@@ -1869,13 +1955,35 @@
                 return null;
             }
 
-            const parsed = Number.parseInt(value, 0);
+            const parsed = Number.parseInt(value, 10);
+            return Number.isNaN(parsed) ? null : parsed;
+        }
+
+        function formatNodeIdFromNumber(nodeNum) {
+            if (nodeNum === null || nodeNum === undefined || Number.isNaN(nodeNum)) {
+                return '';
+            }
+            const unsigned = nodeNum >>> 0;
+            return '!' + unsigned.toString(16).padStart(8, '0');
+        }
+
+        function parseNodeIdToNumber(value) {
+            if (!value) {
+                return null;
+            }
+            let raw = value.trim().toLowerCase();
+            if (raw.startsWith('!')) {
+                raw = raw.slice(1);
+            } else {
+                return null;
+            }
+            const parsed = Number.parseInt(raw, 16);
             return Number.isNaN(parsed) ? null : parsed;
         }
 
         async function encodeNodeInfo() {
-            const nodeNumValue = nodeNumInput.value.trim();
-            const userIdRaw = nodeUserIdInput.value;
+            const nodeNumValue = nodeIdentityNumRadio.checked ? nodeNumInput.value.trim() : '';
+            const userIdRaw = nodeIdentityIdRadio.checked ? nodeUserIdInput.value : '';
             const hwModelRaw = nodeHwModelInput.value;
             const longNameRaw = nodeLongNameInput.value;
             const shortNameRaw = nodeShortNameInput.value;
@@ -1886,22 +1994,19 @@
 
             const nodeNum = parseNodeNumber(nodeNumValue);
             if (nodeNumValue && nodeNum === null) {
-                alert('Node number must be a valid decimal or hex value.');
+                alert('Node number must be a valid decimal value.');
                 return;
             }
 
-            if (
-                nodeNum === null &&
-                !userIdRaw.trim() &&
-                !hwModelRaw.trim() &&
-                !longNameRaw.trim() &&
-                !shortNameRaw.trim() &&
-                !roleRaw.trim() &&
-                !publicKeyRaw.trim() &&
-                !isLicensedChecked &&
-                !isUnmessagableChecked
-            ) {
-                alert('Provide at least a node number or one user field.');
+            const nodeIdValue = userIdRaw.trim();
+            const nodeIdParsed = nodeIdValue ? parseNodeIdToNumber(nodeIdValue) : null;
+            if (nodeIdValue && nodeIdParsed === null) {
+                alert('Node ID must be hex with a leading ! (e.g. !0ad99a53).');
+                return;
+            }
+
+            if (nodeNum === null && !nodeIdValue) {
+                alert('Provide either a node number or a node ID.');
                 return;
             }
 
@@ -1911,8 +2016,8 @@
             }
 
             const userData = {};
-            if (userIdRaw.trim()) {
-                userData.id = userIdRaw;
+            if (nodeIdValue) {
+                userData.id = nodeIdValue;
             }
             if (hwModelRaw.trim()) {
                 userData.hw_model = hwModelRaw;
@@ -2162,6 +2267,11 @@
         function clearNodeInfoForm() {
             nodeNumInput.value = '';
             nodeUserIdInput.value = '';
+            nodeNumInput.dataset.autofilled = 'false';
+            nodeUserIdInput.dataset.autofilled = 'false';
+            nodeIdentityNumRadio.checked = true;
+            nodeIdentityIdRadio.checked = false;
+            updateNodeIdentityMode();
             nodeHwModelInput.value = '';
             nodeLongNameInput.value = '';
             nodeShortNameInput.value = '';
