@@ -811,29 +811,19 @@
 
                 <div class="input-group">
                     <h4 style="margin: 0 0 10px 0; color: #34495e;">Node Identity</h4>
-                    <small style="color: #7f8c8d; font-size: 12px;">Choose one to create the NodeInfo URL.</small>
+                    <small style="color: #7f8c8d; font-size: 12px;">Enter one; the other auto-fills.</small>
                 </div>
 
                 <div class="input-group">
-                    <label>
-                        <input type="radio" name="node-identity-choice" id="node-identity-num" value="num" checked />
-                        Node Number (decimal)
-                    </label>
-                    <div style="margin-left: 22px; margin-top: 8px;">
-                        <input type="text" id="node-num" placeholder="182032979" />
-                        <small style="color: #7f8c8d; font-size: 12px;">Decimal only.</small>
-                    </div>
+                    <label for="node-num">Node Number:</label>
+                    <input type="text" id="node-num" placeholder="182032979" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Decimal only.</small>
                 </div>
 
                 <div class="input-group">
-                    <label>
-                        <input type="radio" name="node-identity-choice" id="node-identity-id" value="id" />
-                        Node ID (hex with leading !)
-                    </label>
-                    <div style="margin-left: 22px; margin-top: 8px;">
-                        <input type="text" id="node-user-id" placeholder="!0ad99a53" disabled />
-                        <small style="color: #7f8c8d; font-size: 12px;">Example: !0ad99a53</small>
-                    </div>
+                    <label for="node-user-id">Node ID:</label>
+                    <input type="text" id="node-user-id" placeholder="!0ad99a53" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Hex with a leading !</small>
                 </div>
 
                 <div class="input-group">
@@ -1546,8 +1536,6 @@
         const encodeResult = document.getElementById('encode-result');
         const nodeNumInput = document.getElementById('node-num');
         const nodeUserIdInput = document.getElementById('node-user-id');
-        const nodeIdentityNumRadio = document.getElementById('node-identity-num');
-        const nodeIdentityIdRadio = document.getElementById('node-identity-id');
         const nodeHwModelInput = document.getElementById('node-hw-model');
         const nodeLongNameInput = document.getElementById('node-long-name');
         const nodeShortNameInput = document.getElementById('node-short-name');
@@ -1589,30 +1577,6 @@
 
         nodeNumInput.dataset.autofilled = 'false';
         nodeUserIdInput.dataset.autofilled = 'false';
-
-        function updateNodeIdentityMode() {
-            const useNumber = nodeIdentityNumRadio.checked;
-            nodeNumInput.disabled = !useNumber;
-            nodeUserIdInput.disabled = useNumber;
-
-            if (useNumber) {
-                if (nodeUserIdInput.dataset.autofilled === 'true') {
-                    nodeUserIdInput.value = '';
-                    nodeUserIdInput.dataset.autofilled = 'false';
-                }
-                nodeNumInput.focus();
-            } else {
-                if (nodeNumInput.dataset.autofilled === 'true') {
-                    nodeNumInput.value = '';
-                    nodeNumInput.dataset.autofilled = 'false';
-                }
-                nodeUserIdInput.focus();
-            }
-        }
-
-        nodeIdentityNumRadio.addEventListener('change', updateNodeIdentityMode);
-        nodeIdentityIdRadio.addEventListener('change', updateNodeIdentityMode);
-        updateNodeIdentityMode();
 
         nodeNumInput.addEventListener('input', () => {
             nodeNumInput.dataset.autofilled = 'false';
@@ -1982,8 +1946,8 @@
         }
 
         async function encodeNodeInfo() {
-            const nodeNumValue = nodeIdentityNumRadio.checked ? nodeNumInput.value.trim() : '';
-            const userIdRaw = nodeIdentityIdRadio.checked ? nodeUserIdInput.value : '';
+            const nodeNumValue = nodeNumInput.value.trim();
+            const userIdRaw = nodeUserIdInput.value;
             const hwModelRaw = nodeHwModelInput.value;
             const longNameRaw = nodeLongNameInput.value;
             const shortNameRaw = nodeShortNameInput.value;
@@ -2269,9 +2233,6 @@
             nodeUserIdInput.value = '';
             nodeNumInput.dataset.autofilled = 'false';
             nodeUserIdInput.dataset.autofilled = 'false';
-            nodeIdentityNumRadio.checked = true;
-            nodeIdentityIdRadio.checked = false;
-            updateNodeIdentityMode();
             nodeHwModelInput.value = '';
             nodeLongNameInput.value = '';
             nodeShortNameInput.value = '';
