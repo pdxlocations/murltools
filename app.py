@@ -27,6 +27,17 @@ app = Flask(__name__)
 
 class MeshtasticDecoder:
     """Handles decoding of Meshtastic channel URLs and protobuf data"""
+
+    def _normalize_config_dict(self, config_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize decoded config keys for consistent API output."""
+        if not isinstance(config_dict, dict):
+            return config_dict
+
+        normalized = dict(config_dict)
+        if isinstance(normalized.get('settings'), list):
+            normalized['channels'] = normalized['settings']
+            del normalized['settings']
+        return normalized
     
     def decode_channel_url(self, url: str) -> Dict[str, Any]:
         """
@@ -208,6 +219,7 @@ class MeshtasticDecoder:
             channel_set = apponly_pb2.ChannelSet()
             channel_set.ParseFromString(decoded_data)
             config_dict = MessageToDict(channel_set, preserving_proto_field_name=True)
+            config_dict = self._normalize_config_dict(config_dict)
             # Validate that this looks like real channel data
             if self._validate_channel_set_data(config_dict):
                 return {
@@ -262,6 +274,12 @@ class MeshtasticDecoder:
 class MeshtasticEncoder:
     """Handles encoding of Meshtastic channel configurations into URLs and QR codes"""
 
+    def _build_channel_url(self, encoded_data: str, add_mode: bool = False) -> str:
+        """Build a Meshtastic channel URL, optionally in add mode."""
+        if add_mode:
+            return f"https://meshtastic.org/e/?add=true#{encoded_data}"
+        return f"https://meshtastic.org/e/#{encoded_data}"
+
     def _format_node_id(self, node_num: int) -> str:
         """Format node number as Meshtastic node ID (hex with leading !)."""
         return f"!{node_num & 0xFFFFFFFF:08x}"
@@ -313,7 +331,7 @@ class MeshtasticEncoder:
         except (TypeError, ValueError):
             return False
 
-    def encode_channel_set(self, channels_data: List[Dict[str, Any]], lora_config_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def encode_channel_set(self, channels_data: List[Dict[str, Any]], lora_config_data: Optional[Dict[str, Any]] = None, add_mode: bool = False) -> Dict[str, Any]:
         """
         Encode multiple channels into a ChannelSet and create Meshtastic URL
         
@@ -475,7 +493,7 @@ class MeshtasticEncoder:
             encoded_data = self._base64url_encode(protobuf_data)
             
             # Create Meshtastic URL
-            url = f"https://meshtastic.org/e/#{encoded_data}"
+            url = self._build_channel_url(encoded_data, add_mode)
             
             # Generate QR code
             qr_code_data = self._generate_qr_code(url)
@@ -490,7 +508,8 @@ class MeshtasticEncoder:
                 'url': url,
                 'qr_code': qr_code_data,
                 'channels_count': len(channels_data),
-                'encoded_size': len(protobuf_data)
+                'encoded_size': len(protobuf_data),
+                'channel_action': 'add' if add_mode else 'replace'
             }
             
             # Add decoded configuration data if decoding was successful
@@ -511,7 +530,7 @@ class MeshtasticEncoder:
                 'error': f'Failed to encode channel set: {str(e)}'
             }
     
-    def encode_single_channel(self, channel_data: Dict[str, Any]) -> Dict[str, Any]:
+    def encode_single_channel(self, channel_data: Dict[str, Any], add_mode: bool = False) -> Dict[str, Any]:
         """
         Encode a single channel into a Channel protobuf and create Meshtastic URL
         
@@ -592,7 +611,7 @@ class MeshtasticEncoder:
             encoded_data = self._base64url_encode(protobuf_data)
             
             # Create Meshtastic URL
-            url = f"https://meshtastic.org/e/#{encoded_data}"
+            url = self._build_channel_url(encoded_data, add_mode)
             
             # Generate QR code
             qr_code_data = self._generate_qr_code(url)
@@ -606,7 +625,8 @@ class MeshtasticEncoder:
                 'success': True,
                 'url': url,
                 'qr_code': qr_code_data,
-                'encoded_size': len(protobuf_data)
+                'encoded_size': len(protobuf_data),
+                'channel_action': 'add' if add_mode else 'replace'
             }
             
             # Add decoded configuration data if decoding was successful
@@ -644,14 +664,21 @@ class MeshtasticEncoder:
                     'error': 'No node data provided'
                 }
 
+            def _get_value(data: Dict[str, Any], *keys: str) -> Any:
+                for key in keys:
+                    if key in data and data[key] is not None:
+                        return data[key]
+                return None
+
             node = mesh_pb2.NodeInfo()
             has_data = False
             has_required_identity = False
             node_num_value: Optional[int] = None
             user_id_value: Optional[str] = None
 
-            if 'num' in node_data and node_data['num'] is not None:
-                node_num = node_data['num']
+            node_num_raw = _get_value(node_data, 'num')
+            if node_num_raw is not None:
+                node_num = node_num_raw
                 if isinstance(node_num, str):
                     node_num = int(node_num, 10)
                 node_num_value = int(node_num)
@@ -659,26 +686,85 @@ class MeshtasticEncoder:
                 has_data = True
                 has_required_identity = True
 
+            # Optional NodeInfo fields
+            snr_value = _get_value(node_data, 'snr')
+            if snr_value is not None:
+                self._set_proto_field(node, 'snr', float(snr_value))
+                has_data = True
+
+            last_heard_value = _get_value(node_data, 'last_heard', 'lastHeard')
+            if last_heard_value is not None:
+                self._set_proto_field(node, 'last_heard', int(last_heard_value))
+                has_data = True
+
+            channel_value = _get_value(node_data, 'channel')
+            if channel_value is not None:
+                self._set_proto_field(node, 'channel', int(channel_value))
+                has_data = True
+
+            via_mqtt_value = _get_value(node_data, 'via_mqtt', 'viaMqtt')
+            if via_mqtt_value is not None:
+                self._set_proto_field(node, 'via_mqtt', bool(via_mqtt_value))
+                has_data = True
+
+            is_favorite_value = _get_value(node_data, 'is_favorite', 'isFavorite')
+            if is_favorite_value is not None:
+                self._set_proto_field(node, 'is_favorite', bool(is_favorite_value))
+                has_data = True
+
+            is_ignored_value = _get_value(node_data, 'is_ignored', 'isIgnored')
+            if is_ignored_value is not None:
+                self._set_proto_field(node, 'is_ignored', bool(is_ignored_value))
+                has_data = True
+
+            is_key_manually_verified_value = _get_value(
+                node_data,
+                'is_key_manually_verified',
+                'isKeyManuallyVerified'
+            )
+            if is_key_manually_verified_value is not None:
+                self._set_proto_field(
+                    node,
+                    'is_key_manually_verified',
+                    bool(is_key_manually_verified_value)
+                )
+                has_data = True
+
+            hops_away_value = _get_value(node_data, 'hops_away', 'hopsAway')
+            if hops_away_value is not None:
+                self._set_proto_field(node, 'hops_away', int(hops_away_value))
+                has_data = True
+
             user_data = node_data.get('user')
             if isinstance(user_data, dict):
                 user = mesh_pb2.User()
 
-                if 'id' in user_data and user_data['id']:
-                    user_id_value = str(user_data['id'])
+                user_id_raw = _get_value(user_data, 'id')
+                if user_id_raw:
+                    user_id_value = str(user_id_raw)
                     self._set_proto_field(user, 'id', user_id_value)
                     has_required_identity = True
-                if 'long_name' in user_data and user_data['long_name']:
-                    self._set_proto_field(user, 'long_name', str(user_data['long_name']))
-                if 'short_name' in user_data and user_data['short_name']:
-                    self._set_proto_field(user, 'short_name', str(user_data['short_name']))
-                if 'hw_model' in user_data and user_data['hw_model'] is not None:
-                    self._set_proto_enum(user, 'hw_model', user_data['hw_model'])
-                if 'is_licensed' in user_data and user_data['is_licensed'] is not None:
-                    self._set_proto_field(user, 'is_licensed', bool(user_data['is_licensed']))
-                if 'role' in user_data and user_data['role'] is not None:
-                    self._set_proto_enum(user, 'role', user_data['role'])
-                if 'public_key' in user_data and user_data['public_key']:
-                    public_key_value = user_data['public_key']
+                long_name_value = _get_value(user_data, 'long_name', 'longName')
+                if long_name_value:
+                    self._set_proto_field(user, 'long_name', str(long_name_value))
+                short_name_value = _get_value(user_data, 'short_name', 'shortName')
+                if short_name_value:
+                    self._set_proto_field(user, 'short_name', str(short_name_value))
+                macaddr_value = _get_value(user_data, 'macaddr', 'macAddr')
+                if macaddr_value:
+                    self._set_proto_field(user, 'macaddr', str(macaddr_value))
+                hw_model_value = _get_value(user_data, 'hw_model', 'hwModel')
+                if hw_model_value is not None:
+                    self._set_proto_enum(user, 'hw_model', hw_model_value)
+                is_licensed_value = _get_value(user_data, 'is_licensed', 'isLicensed')
+                if is_licensed_value is not None:
+                    self._set_proto_field(user, 'is_licensed', bool(is_licensed_value))
+                role_value = _get_value(user_data, 'role')
+                if role_value is not None:
+                    self._set_proto_enum(user, 'role', role_value)
+                public_key_raw = _get_value(user_data, 'public_key', 'publicKey')
+                if public_key_raw:
+                    public_key_value = public_key_raw
                     if isinstance(public_key_value, str):
                         try:
                             public_key_value = base64.b64decode(public_key_value)
@@ -686,8 +772,9 @@ class MeshtasticEncoder:
                             public_key_value = None
                     if public_key_value:
                         self._set_proto_field(user, 'public_key', public_key_value)
-                if 'is_unmessagable' in user_data and user_data['is_unmessagable'] is not None:
-                    self._set_proto_field(user, 'is_unmessagable', bool(user_data['is_unmessagable']))
+                is_unmessagable_value = _get_value(user_data, 'is_unmessagable', 'isUnmessagable')
+                if is_unmessagable_value is not None:
+                    self._set_proto_field(user, 'is_unmessagable', bool(is_unmessagable_value))
 
                 if user.ListFields():
                     if 'user' in node.DESCRIPTOR.fields_by_name:
@@ -1023,6 +1110,15 @@ def encode_channels():
     
     # Get LoRa config if provided
     lora_config = data.get('lora_config')
+    channel_action = str(data.get('channel_action', 'replace')).strip().lower()
+    add_mode = channel_action == 'add'
+
+    # Replace action requires explicit LoRa config
+    if not add_mode and (not isinstance(lora_config, dict) or not lora_config):
+        return jsonify({
+            'success': False,
+            'error': 'LoRa config is required when channel_action is "replace".'
+        }), 400
     
     # Determine if we're encoding a single channel or multiple channels
     if 'channels' in data and isinstance(data['channels'], list):
@@ -1031,14 +1127,14 @@ def encode_channels():
         if not channels_data:
             return jsonify({'success': False, 'error': 'No channels provided'}), 400
         
-        result = encoder.encode_channel_set(channels_data, lora_config)
+        result = encoder.encode_channel_set(channels_data, lora_config, add_mode)
     elif 'channel' in data:
         # Single channel - encode as single Channel (legacy support)
         channel_data = data['channel']
         if not channel_data:
             return jsonify({'success': False, 'error': 'No channel data provided'}), 400
         
-        result = encoder.encode_single_channel(channel_data)
+        result = encoder.encode_single_channel(channel_data, add_mode)
     else:
         return jsonify({
             'success': False, 
