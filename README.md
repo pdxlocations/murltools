@@ -6,6 +6,8 @@ A comprehensive Python Flask application for encoding, decoding, and managing Me
 
 ### 🔧 **Channel Configuration Creator**
 - **Visual Form Interface**: Create multi-channel configurations with intuitive web forms
+- **Add or Replace Mode**: Generate `add` URLs (`?add=true`) or `replace` URLs
+- **LoRa Settings Control**: Include LoRa settings when needed; `replace` mode requires LoRa config
 - **LoRa Settings**: Configure bandwidth, spread factor, coding rate, and regional settings
 - **Position Precision**: Set location sharing precision (1-32 bits) for privacy control
 - **PSK Management**: Support for both hex and base64 pre-shared keys
@@ -55,8 +57,11 @@ A comprehensive Python Flask application for encoding, decoding, and managing Me
 
 #### Create New Configuration
 - Go to the **"Create URL"** tab
+- Choose **Channel Action**:
+  - **Replace Channels**: Standard `/e/#...` URL, requires LoRa settings
+  - **Add Channels**: `/e/?add=true#...` URL for appending channels
 - Configure channels with names, PSKs, and position precision
-- Set LoRa parameters (bandwidth, spread factor, coding rate, region)
+- Set LoRa parameters (bandwidth, spread factor, coding rate, region) when included
 - Choose between preset and manual modes
 - Generate Meshtastic URL and QR code
 - Copy URL or download QR code for device configuration
@@ -103,6 +108,7 @@ python decode.py --help
 
 ### Input Formats
 - **Meshtastic URLs**: `https://meshtastic.org/e/#[encoded_data]`
+- **Add Mode URLs**: `https://meshtastic.org/e/?add=true#[encoded_data]`
 - **Query Parameter URLs**: `https://meshtastic.org/e/?c=[encoded_data]`
 - **QR Code Images**: PNG, JPEG, and other common formats
 - **Base64url Encoded Data**: Direct protobuf data input
@@ -175,6 +181,7 @@ curl -X POST http://localhost:5002/decode \
 curl -X POST http://localhost:5002/encode \
   -H "Content-Type: application/json" \
   -d '{
+    "channel_action": "replace",
     "channels": [
       {
         "name": "My Channel",
@@ -190,6 +197,13 @@ curl -X POST http://localhost:5002/encode \
   }'
 ```
 
+`channel_action` values:
+- `replace` (default): requires `lora_config`
+- `add`: `lora_config` optional
+
+When `channel_action` is `add`, generated URLs use:
+- `https://meshtastic.org/e/?add=true#...`
+
 ## Error Handling
 
 The application handles various error conditions:
@@ -198,6 +212,7 @@ The application handles various error conditions:
 - Corrupted or invalid protobuf data
 - Base64 decoding errors
 - Network connectivity issues (web interface)
+- Missing `lora_config` when `channel_action` is `replace`
 
 When decoding fails, the application provides:
 - Clear error messages
@@ -242,6 +257,10 @@ This makes it easy to:
 - Fix incorrect settings in URLs
 - Convert between different channel setups
 - Create variations of working configurations
+
+### JSON Field Names
+- Multi-channel config JSON uses `Config.channels`
+- Legacy `Config.settings` is still accepted when loading older data
 
 ### 🎯 Position Privacy Control
 - **32-bit precision**: ~0.5 cm accuracy (maximum)
