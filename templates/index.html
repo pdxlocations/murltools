@@ -1940,13 +1940,20 @@
                     channelData.name = name;
                 }
                 
-                // Handle PSK - use default "AQ==" if empty
                 if (psk) {
                     channelData.psk = psk;
                 } else {
                     // Fill in default PSK when empty
-                    channelData.psk = "AQ==";
+                    channelData.psk = "";
                 }
+
+                // // Handle PSK - use default "AQ==" if empty
+                // if (psk) {
+                //     channelData.psk = psk;
+                // } else {
+                //     // Fill in default PSK when empty
+                //     channelData.psk = "AQ==";
+                // }
                 
                 // Include boolean flags if they're true
                 if (uplinkEnabled) {
