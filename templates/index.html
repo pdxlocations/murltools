@@ -1666,6 +1666,10 @@
         const nodeinfoLoading = document.getElementById('nodeinfo-loading');
         const nodeinfoResult = document.getElementById('nodeinfo-result');
         
+        // The firmware treats a PSK of one byte or less as publicly decryptable and clamps
+        // position to MAX_POSITION_PRECISION_PUBLIC_KEY bits before transmitting.
+        const MAX_PRECISION_PUBLIC_KEY = 15;
+
         // Initialize with 1 channel
         generateChannelForms(1);
         
@@ -1879,10 +1883,6 @@
                 return false;
             }
         }
-
-        // The firmware treats a PSK of one byte or less as publicly decryptable and clamps
-        // position to MAX_POSITION_PRECISION_PUBLIC_KEY bits before transmitting.
-        const MAX_PRECISION_PUBLIC_KEY = 15;
 
         function refreshPreciseLocationWarning(index) {
             const warning = document.getElementById(`channel-${index}-precise-warning`);
