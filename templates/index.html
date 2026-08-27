@@ -2469,6 +2469,41 @@
             });
         }
 
+        function appendMissingEnumOptions(selectEl, enumValues) {
+            if (!selectEl || !Array.isArray(enumValues)) {
+                return;
+            }
+
+            // Keep the hand-written friendly labels, append whatever the protobuf adds
+            const existing = new Set(Array.from(selectEl.options).map(option => option.value));
+            enumValues.forEach(name => {
+                if (existing.has(name)) {
+                    return;
+                }
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                selectEl.appendChild(option);
+            });
+        }
+
+        async function initLoRaEnums() {
+            try {
+                const response = await fetch('/lora_enums');
+                const data = await response.json();
+                if (!data.success) {
+                    return;
+                }
+
+                ['lora-preset', 'modem-preset'].forEach(id =>
+                    appendMissingEnumOptions(document.getElementById(id), data.modem_preset));
+                ['preset-region', 'region'].forEach(id =>
+                    appendMissingEnumOptions(document.getElementById(id), data.region));
+            } catch (error) {
+                console.error('Failed to load LoRa enums:', error);
+            }
+        }
+
         async function initNodeInfoEnums() {
             try {
                 const response = await fetch('/nodeinfo_enums');
@@ -3011,6 +3046,7 @@
         window.addEventListener('load', () => {
             urlInput.focus();
             initNodeInfoEnums();
+            initLoRaEnums();
         });
     </script>
     <footer style="margin: 24px 0 16px; text-align: center; color: #6b7280; font-size: 14px;">

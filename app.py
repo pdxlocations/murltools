@@ -469,27 +469,8 @@ class MeshtasticEncoder:
                 if 'use_preset' in lora_config_data:
                     lora_config.use_preset = bool(lora_config_data['use_preset'])
                 if 'modem_preset' in lora_config_data:
-                    # Map preset names to integer values (updated for new values)
-                    preset_map = {
-                        'LONG_FAST': 0,       # LONG_FAST
-                        'LONG_SLOW': 1,       # LONG_SLOW  
-                        'VERY_LONG_SLOW': 2,  # VERY_LONG_SLOW
-                        'MEDIUM_SLOW': 3,     # MEDIUM_SLOW
-                        'MEDIUM_FAST': 4,     # MEDIUM_FAST
-                        'SHORT_SLOW': 5,      # SHORT_SLOW
-                        'SHORT_FAST': 6,      # SHORT_FAST
-                        'LONG_MODERATE': 7,   # LONG_MODERATE
-                        'SHORT_TURBO': 8,     # SHORT_TURBO
-                        # Legacy support
-                        'long_fast': 0,
-                        'long_slow': 1,
-                        'very_long_slow': 2,
-                        'medium_slow': 3,
-                        'medium_fast': 4,
-                        'short_slow': 5,
-                        'short_fast': 6
-                    }
-                    lora_config.modem_preset = preset_map.get(lora_config_data['modem_preset'], 0)
+                    if not self._set_proto_enum(lora_config, 'modem_preset', lora_config_data['modem_preset']):
+                        raise ValueError(f"Unknown modem preset: {lora_config_data['modem_preset']}")
                 if 'bandwidth' in lora_config_data:
                     # Use bandwidth value as-is (no unit conversion)
                     lora_config.bandwidth = int(lora_config_data['bandwidth'])
@@ -514,25 +495,8 @@ class MeshtasticEncoder:
                 if 'override_frequency' in lora_config_data:
                     lora_config.override_frequency = float(lora_config_data['override_frequency'])
                 if 'region' in lora_config_data:
-                    # Map region string to enum value
-                    region_map = {
-                        'US': 1,
-                        'EU_433': 2,
-                        'EU_868': 3,
-                        'CN': 4,
-                        'JP': 5,
-                        'ANZ': 6,
-                        'KR': 7,
-                        'TW': 8,
-                        'RU': 9,
-                        'IN': 10,
-                        'NZ_865': 11,
-                        'TH': 12,
-                        'LORA_24': 13,
-                        'UA_433': 14,
-                        'UA_868': 15
-                    }
-                    lora_config.region = region_map.get(lora_config_data['region'], 1)  # Default to US
+                    if not self._set_proto_enum(lora_config, 'region', lora_config_data['region']):
+                        raise ValueError(f"Unknown region: {lora_config_data['region']}")
                     
                 channel_set.lora_config.CopyFrom(lora_config)
             
@@ -1079,6 +1043,21 @@ def nodeinfo_enums():
             'hw_model': hw_model_values,
             'role': role_values
         })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/lora_enums', methods=['GET'])
+def lora_enums():
+    """Return enum names for LoRa config fields"""
+    try:
+        lora_descriptor = config_pb2.Config.LoRaConfig.DESCRIPTOR
+        values = {}
+
+        for field_name in ('modem_preset', 'region'):
+            field = lora_descriptor.fields_by_name.get(field_name)
+            values[field_name] = [value.name for value in field.enum_type.values] if field and field.enum_type else []
+
+        return jsonify({'success': True, **values})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
