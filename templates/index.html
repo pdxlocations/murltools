@@ -1909,8 +1909,6 @@
                     positionPrecision = parseInt(precisionSlider.value); // Approximate precision
                 }
                 
-                const clientMutedField = document.getElementById(`channel-${i}-client-muted`);
-                const clientMuted = clientMutedField ? clientMutedField.checked : false;
                 const uplinkEnabled = document.getElementById(`channel-${i}-uplink`).checked;
                 const downlinkEnabled = document.getElementById(`channel-${i}-downlink`).checked;
                 const mute = document.getElementById(`channel-${i}-mute`).checked;
@@ -1918,15 +1916,12 @@
                 const channelData = {
                     role: role,
                     module_settings: {
-                        position_precision: positionPrecision
+                        position_precision: positionPrecision,
+                        is_muted: mute
                     }
                 };
-                
-                // Add is_client_muted to module_settings if checked
-                if (clientMuted) {
-                    channelData.module_settings.is_client_muted = true;
-                }
-                
+
+
                 // Only include name if user actually entered one
                 if (name) {
                     channelData.name = name;
@@ -1944,11 +1939,7 @@
                 if (downlinkEnabled) {
                     channelData.downlink_enabled = true;
                 }
-                
-                if (mute) {
-                    channelData.mute = true;
-                }
-                
+
                 channels.push(channelData);
             }
             
@@ -2773,15 +2764,6 @@
                 }
             }
             
-            // Load client muted from module_settings
-            if (channelSettings.module_settings && channelSettings.module_settings.is_client_muted !== undefined) {
-                const clientMutedField = document.getElementById(`channel-${channelIndex}-client-muted`);
-                if (clientMutedField) {
-                    clientMutedField.checked = channelSettings.module_settings.is_client_muted;
-                    console.log(`Set client muted to ${channelSettings.module_settings.is_client_muted} for channel ${channelIndex}`);
-                }
-            }
-            
             // Load uplink enabled
             if (channelSettings.uplink_enabled !== undefined) {
                 const uplinkField = document.getElementById(`channel-${channelIndex}-uplink`);
@@ -2800,13 +2782,11 @@
                 }
             }
             
-            // Load mute flag
-            if (channelSettings.mute !== undefined) {
-                const muteField = document.getElementById(`channel-${channelIndex}-mute`);
-                if (muteField) {
-                    muteField.checked = channelSettings.mute;
-                    console.log(`Set mute to ${channelSettings.mute} for channel ${channelIndex}`);
-                }
+            // Load mute flag, which the protobuf keeps in module_settings
+            const muteField = document.getElementById(`channel-${channelIndex}-mute`);
+            if (muteField) {
+                const moduleSettings = channelSettings.module_settings || {};
+                muteField.checked = Boolean(moduleSettings.is_muted);
             }
             
             // Set channel role if needed (update the hidden field)
