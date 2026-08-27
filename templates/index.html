@@ -1707,6 +1707,14 @@
             }
         });
         
+        // Single byte 0x01, which every client expands to the standard public key
+        const DEFAULT_KEY_PSK = 'AQ==';
+
+        function isDefaultKeyPsk(psk) {
+            const value = (psk || '').trim();
+            return value === DEFAULT_KEY_PSK || value.toLowerCase() === '0x01';
+        }
+
         function generateChannelForms(numChannels) {
             channelsContainer.innerHTML = '';
             
@@ -1734,8 +1742,15 @@
                     
                     <div class="input-group">
                         <label for="channel-${i}-psk">Pre-Shared Key (PSK):</label>
-                        <input type="text" id="channel-${i}-psk" placeholder="Leave empty for default key or enter hex (0x...) or base64" />
-                        <small style="color: #7f8c8d; font-size: 12px;">Format: hex (0x1234abcd...) or base64 (AQIDBAUGBwgJ...). Leave empty for default key.</small>
+                        <input type="text" id="channel-${i}-psk" placeholder="Leave empty for unencrypted channel, or enter hex (0x...) or base64" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Format: hex (0x1234abcd...) or base64 (AQIDBAUGBwgJ...). Leave empty for unencrypted channel.</small>
+                    </div>
+
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="channel-${i}-default-key" /> Default Key
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">The standard public key (AQ==) every stock node ships with</small>
                     </div>
                     
                     <div class="input-group">
@@ -1794,6 +1809,22 @@
                 
                 channelsContainer.appendChild(channelDiv);
                 
+                // Keep the default-key checkbox and the PSK field in step
+                const pskInput = document.getElementById(`channel-${i}-psk`);
+                const defaultKeyCheckbox = document.getElementById(`channel-${i}-default-key`);
+
+                defaultKeyCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        pskInput.value = DEFAULT_KEY_PSK;
+                    } else if (isDefaultKeyPsk(pskInput.value)) {
+                        pskInput.value = '';
+                    }
+                });
+
+                pskInput.addEventListener('input', function() {
+                    defaultKeyCheckbox.checked = isDefaultKeyPsk(this.value);
+                });
+
                 // Add event listeners for position controls
                 const positionEnabled = document.getElementById(`channel-${i}-position-enabled`);
                 const positionSettings = document.getElementById(`channel-${i}-position-settings`);
@@ -1901,21 +1932,10 @@
                     channelData.name = name;
                 }
                 
-                if (psk) {
-                    channelData.psk = psk;
-                } else {
-                    // Fill in default PSK when empty
-                    channelData.psk = "";
-                }
+                // An empty PSK is an unencrypted channel; tick Default Key for the standard key
+                channelData.psk = psk;
 
-                // // Handle PSK - use default "AQ==" if empty
-                // if (psk) {
-                //     channelData.psk = psk;
-                // } else {
-                //     // Fill in default PSK when empty
-                //     channelData.psk = "AQ==";
-                // }
-                
+
                 // Include boolean flags if they're true
                 if (uplinkEnabled) {
                     channelData.uplink_enabled = true;
@@ -2679,14 +2699,18 @@
             }
             
             // Load PSK (keep as base64 format)
-            if (channelSettings.psk) {
-                const pskField = document.getElementById(`channel-${channelIndex}-psk`);
-                if (pskField) {
-                    // Display PSK in base64 format as received
-                    pskField.value = channelSettings.psk;
-                }
+            const pskField = document.getElementById(`channel-${channelIndex}-psk`);
+            if (pskField) {
+                // Display PSK in base64 format as received; absent means unencrypted
+                pskField.value = channelSettings.psk || '';
             }
-            
+
+            const defaultKeyField = document.getElementById(`channel-${channelIndex}-default-key`);
+            if (defaultKeyField) {
+                defaultKeyField.checked = isDefaultKeyPsk(channelSettings.psk);
+            }
+
+
             // Load position precision using new controls
             // Note: protobuf MessageToDict may omit position_precision if it's 0 (default value)
             const positionEnabled = document.getElementById(`channel-${channelIndex}-position-enabled`);
