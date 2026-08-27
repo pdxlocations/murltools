@@ -221,6 +221,12 @@ Both encode endpoints accept an optional `qr_embed` object:
 - `ratio`: 0.10–0.30 of the code width; the default is 0.22
 - `image`: a data URL or bare base64, up to 2 MB
 
+A separate top-level `qr_scale` of `1` (default), `2` or `4` multiplies the output resolution.
+That helps printing and downloading, but it does **not** make the code easier to scan on
+screen: scanning depends on how large the code is *displayed*, not on how many pixels each
+module has. Measured on a 77-module code, decoding needs roughly 3 px per module — about
+250 px across for that code, regardless of whether the PNG is 850 px or 3400 px wide.
+
 Reserving the centre forces error correction **H**, which the `qrcode` library requires and
 which makes the code noticeably denser — roughly 45% more modules per side. The response
 reports `error_correction` and `modules` so this is visible. Scan-test any code you intend to

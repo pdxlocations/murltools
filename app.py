@@ -42,6 +42,11 @@ MAX_EMBED_RATIO = 0.30
 DEFAULT_EMBED_RATIO = 0.22
 MAX_EMBED_IMAGE_BYTES = 2 * 1024 * 1024
 
+# Output resolution multiplier. Helps print and download quality; scanning at a given
+# displayed size depends on module count, not on how many pixels each module gets.
+QR_BOX_SIZE = 10
+ALLOWED_QR_SCALES = {1, 2, 4}
+
 class MeshtasticDecoder:
     """Handles decoding of Meshtastic channel URLs and protobuf data"""
 
@@ -392,7 +397,7 @@ class MeshtasticEncoder:
         except (TypeError, ValueError):
             return False
 
-    def encode_channel_set(self, channels_data: List[Dict[str, Any]], lora_config_data: Optional[Dict[str, Any]] = None, add_mode: bool = False, embed: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def encode_channel_set(self, channels_data: List[Dict[str, Any]], lora_config_data: Optional[Dict[str, Any]] = None, add_mode: bool = False, embed: Optional[Dict[str, Any]] = None, scale: int = 1) -> Dict[str, Any]:
         """
         Encode multiple channels into a ChannelSet and create Meshtastic URL
         
@@ -541,7 +546,7 @@ class MeshtasticEncoder:
             url = self._build_channel_url(encoded_data, add_mode)
             
             # Generate QR code
-            qr_code_data = self._generate_qr_code(url, embed)
+            qr_code_data = self._generate_qr_code(url, embed, scale)
             
             # Also decode the generated URL to provide config data in same format as decoder
             decoder_instance = MeshtasticDecoder()
@@ -575,7 +580,7 @@ class MeshtasticEncoder:
                 'error': f'Failed to encode channel set: {str(e)}'
             }
     
-    def encode_single_channel(self, channel_data: Dict[str, Any], lora_config_data: Optional[Dict[str, Any]] = None, add_mode: bool = False, embed: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def encode_single_channel(self, channel_data: Dict[str, Any], lora_config_data: Optional[Dict[str, Any]] = None, add_mode: bool = False, embed: Optional[Dict[str, Any]] = None, scale: int = 1) -> Dict[str, Any]:
         """
         Encode a single channel into a Meshtastic URL
 
@@ -589,9 +594,9 @@ class MeshtasticEncoder:
         """
         # A URL always carries a ChannelSet, never a bare Channel, so a lone
         # channel is just a one-entry set.
-        return self.encode_channel_set([channel_data], lora_config_data, add_mode, embed)
+        return self.encode_channel_set([channel_data], lora_config_data, add_mode, embed, scale)
 
-    def encode_nodeinfo(self, node_data: Dict[str, Any], embed: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def encode_nodeinfo(self, node_data: Dict[str, Any], embed: Optional[Dict[str, Any]] = None, scale: int = 1) -> Dict[str, Any]:
         """
         Encode a shared contact into a Meshtastic contact URL
 
@@ -705,7 +710,7 @@ class MeshtasticEncoder:
             encoded_data = self._base64url_encode(protobuf_data)
             url = f"https://meshtastic.org/v/#{encoded_data}"
 
-            qr_code_data = self._generate_qr_code(url, embed)
+            qr_code_data = self._generate_qr_code(url, embed, scale)
             decoder_instance = MeshtasticDecoder()
             decoded_result = decoder_instance.decode_channel_url(url)
 
@@ -746,7 +751,7 @@ class MeshtasticEncoder:
         image.load()
         return image.convert('RGBA')
 
-    def _generate_qr_code(self, url: str, embed: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _generate_qr_code(self, url: str, embed: Optional[Dict[str, Any]] = None, scale: int = 1) -> Dict[str, Any]:
         """
         Generate a QR code image for the given URL
 
@@ -756,6 +761,9 @@ class MeshtasticEncoder:
                    reserving a square in the centre. Anything centred forces error
                    correction H, which the qrcode library requires and which makes the
                    code denser, so the caller opts in.
+            scale: Pixel multiplier for the output. Raises print and download quality;
+                   it does not change how well the code scans at a given displayed size,
+                   which depends on the module count instead.
 
         Returns:
             Dictionary containing the base64 PNG and its size
@@ -776,10 +784,14 @@ class MeshtasticEncoder:
                     f'Embed ratio must be between {MIN_EMBED_RATIO} and {MAX_EMBED_RATIO}'
                 )
 
+            scale = int(scale or 1)
+            if scale not in ALLOWED_QR_SCALES:
+                raise ValueError(f'QR scale must be one of {sorted(ALLOWED_QR_SCALES)}')
+
             qr = qrcode.QRCode(
                 version=1,  # Controls the size of the QR Code
                 error_correction=ERROR_CORRECT_H if centre_image else ERROR_CORRECT_L,
-                box_size=10,
+                box_size=QR_BOX_SIZE * scale,
                 border=4,
             )
             qr.add_data(url)
@@ -808,6 +820,7 @@ class MeshtasticEncoder:
                 'image_base64': img_base64,
                 'mime_type': 'image/png',
                 'size': qr_img.size,
+                'scale': scale,
                 'modules': qr.modules_count,
                 'error_correction': 'H' if centre_image else 'L'
             }
@@ -1056,6 +1069,7 @@ def encode_channels():
     # Get LoRa config if provided
     lora_config = data.get('lora_config')
     embed = data.get('qr_embed')
+    qr_scale = data.get('qr_scale', 1)
     channel_action = str(data.get('channel_action', 'replace')).strip().lower()
     add_mode = channel_action == 'add'
 
@@ -1073,14 +1087,14 @@ def encode_channels():
         if not channels_data:
             return jsonify({'success': False, 'error': 'No channels provided'}), 400
         
-        result = encoder.encode_channel_set(channels_data, lora_config, add_mode, embed)
+        result = encoder.encode_channel_set(channels_data, lora_config, add_mode, embed, qr_scale)
     elif 'channel' in data:
         # Single channel - encoded as a one-entry ChannelSet
         channel_data = data['channel']
         if not channel_data:
             return jsonify({'success': False, 'error': 'No channel data provided'}), 400
 
-        result = encoder.encode_single_channel(channel_data, lora_config, add_mode, embed)
+        result = encoder.encode_single_channel(channel_data, lora_config, add_mode, embed, qr_scale)
     else:
         return jsonify({
             'success': False, 
@@ -1098,7 +1112,7 @@ def encode_nodeinfo():
         return jsonify({'success': False, 'error': 'No node data provided'}), 400
 
     node_data = data['node']
-    result = encoder.encode_nodeinfo(node_data, data.get('qr_embed'))
+    result = encoder.encode_nodeinfo(node_data, data.get('qr_embed'), data.get('qr_scale', 1))
     return jsonify(result)
 
 @app.route('/nodeinfo_enums', methods=['GET'])

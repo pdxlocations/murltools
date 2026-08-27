@@ -827,6 +827,16 @@
                     <small style="color: #7f8c8d; font-size: 12px;">Covers <span id="channel-qr-ratio-display">22</span>% of the code width. Above 30% it stops scanning.</small>
                 </div>
 
+                <div class="input-group">
+                    <label for="channel-qr-scale">Output resolution:</label>
+                    <select id="channel-qr-scale">
+                        <option value="1" selected>1x</option>
+                        <option value="2">2x</option>
+                        <option value="4">4x</option>
+                    </select>
+                    <small style="color: #7f8c8d; font-size: 12px;">More pixels per module, for printing or downloading. It does not change how well the code scans on screen &mdash; displayed size does that.</small>
+                </div>
+
                 <div class="button-group">
                     <button id="encode-btn">🚀 Generate URL &amp; QR Code</button>
                     <button id="clear-encode-btn">🗑️ Clear Form</button>
@@ -957,6 +967,16 @@
                     <label for="contact-qr-ratio" style="margin-top: 10px; display: block;">Size:</label>
                     <input type="range" id="contact-qr-ratio" min="10" max="30" value="22" style="width: 100%;" />
                     <small style="color: #7f8c8d; font-size: 12px;">Covers <span id="contact-qr-ratio-display">22</span>% of the code width. Above 30% it stops scanning.</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="contact-qr-scale">Output resolution:</label>
+                    <select id="contact-qr-scale">
+                        <option value="1" selected>1x</option>
+                        <option value="2">2x</option>
+                        <option value="4">4x</option>
+                    </select>
+                    <small style="color: #7f8c8d; font-size: 12px;">More pixels per module, for printing or downloading. It does not change how well the code scans on screen &mdash; displayed size does that.</small>
                 </div>
 
                 <div class="button-group">
@@ -1811,6 +1831,16 @@
             return { mode: 'image', image: qrEmbedImages[prefix], ratio: ratio };
         }
 
+        // Scanners need roughly 3 pixels per module, so show dense codes larger.
+        function qrDisplayWidth(qrCode) {
+            const modules = (qrCode && qrCode.modules) || 33;
+            return Math.min(420, Math.max(300, Math.round((modules + 8) * 4.5)));
+        }
+
+        function collectQrScale(prefix) {
+            return parseInt(document.getElementById(`${prefix}-qr-scale`).value, 10) || 1;
+        }
+
         function resetQrEmbedControls(prefix) {
             delete qrEmbedImages[prefix];
             document.getElementById(`${prefix}-qr-embed`).value = 'none';
@@ -1819,6 +1849,7 @@
             document.getElementById(`${prefix}-qr-image`).value = '';
             document.getElementById(`${prefix}-qr-ratio`).value = '22';
             document.getElementById(`${prefix}-qr-ratio-display`).textContent = '22';
+            document.getElementById(`${prefix}-qr-scale`).value = '1';
         }
 
         // Single byte 0x01, which every client expands to the standard public key
@@ -2153,7 +2184,8 @@
                 channels: channels,
                 lora_config: loraConfig,
                 channel_action: channelAction,
-                qr_embed: qrEmbed
+                qr_embed: qrEmbed,
+                qr_scale: collectQrScale('channel')
             };
 
             // Show loading state
@@ -2306,7 +2338,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ node: nodeData, qr_embed: qrEmbed })
+                    body: JSON.stringify({ node: nodeData, qr_embed: qrEmbed, qr_scale: collectQrScale('contact') })
                 });
 
                 const data = await response.json();
@@ -2348,11 +2380,14 @@
                 html += '<div class="result-json">';
                 html += '<strong>QR Code:</strong>';
                 html += '<div style="text-align: center; margin: 15px 0;">';
-                html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; max-width: 300px; height: auto;" />`;
+                html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; width: 100%; max-width: ${qrDisplayWidth(data.qr_code)}px; height: auto;" />`;
                 html += '</div>';
                 html += `<button class="copy-button" onclick="downloadQRCode('${data.qr_code.image_base64}', 'meshtastic-channel.png')">💾 Download QR Code</button>`;
                 if (data.qr_code.error_correction === 'H') {
                     html += `<div style="font-size: 12px; color: #7f8c8d; margin-top: 6px;">Error correction H, ${data.qr_code.modules}&times;${data.qr_code.modules} modules &mdash; denser than usual because the centre is reserved. Scan-test before printing.</div>`;
+                }
+                if (data.qr_code.size) {
+                    html += `<div style="font-size: 12px; color: #7f8c8d; margin-top: 4px;">Image ${data.qr_code.size[0]}&times;${data.qr_code.size[1]}px at ${data.qr_code.scale}x. Download for the full resolution.</div>`;
                 }
                 html += '</div>';
             }
@@ -2433,11 +2468,14 @@
                 html += '<div class="result-json">';
                 html += '<strong>QR Code:</strong>';
                 html += '<div style="text-align: center; margin: 15px 0;">';
-                html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; max-width: 300px; height: auto;" />`;
+                html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; width: 100%; max-width: ${qrDisplayWidth(data.qr_code)}px; height: auto;" />`;
                 html += '</div>';
                 html += `<button class="copy-button" onclick="downloadQRCode('${data.qr_code.image_base64}', 'meshtastic-nodeinfo.png')">💾 Download QR Code</button>`;
                 if (data.qr_code.error_correction === 'H') {
                     html += `<div style="font-size: 12px; color: #7f8c8d; margin-top: 6px;">Error correction H, ${data.qr_code.modules}&times;${data.qr_code.modules} modules &mdash; denser than usual because the centre is reserved. Scan-test before printing.</div>`;
+                }
+                if (data.qr_code.size) {
+                    html += `<div style="font-size: 12px; color: #7f8c8d; margin-top: 4px;">Image ${data.qr_code.size[0]}&times;${data.qr_code.size[1]}px at ${data.qr_code.scale}x. Download for the full resolution.</div>`;
                 }
                 html += '</div>';
             }
