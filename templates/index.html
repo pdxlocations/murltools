@@ -603,7 +603,7 @@
                     <label>
                         <input type="checkbox" id="include-lora-settings" /> Include LoRa Settings
                     </label>
-                    <small style="color: #7f8c8d; font-size: 12px;">Enable to include modem/radio settings in the generated URL.</small>
+                    <small style="color: #7f8c8d; font-size: 12px;">Set by Channel Action: Replace always includes modem/radio settings, Add never does.</small>
                 </div>
 
                 <div id="lora-settings-container" style="display: none;">
@@ -1652,12 +1652,10 @@
             const channelAction = channelActionSelect ? channelActionSelect.value : 'replace';
             const isReplace = channelAction === 'replace';
 
-            if (isReplace) {
-                includeLoraSettingsCheckbox.checked = true;
-                includeLoraSettingsCheckbox.disabled = true;
-            } else {
-                includeLoraSettingsCheckbox.disabled = false;
-            }
+            // Replace requires LoRa settings; Add never carries them. Either way the
+            // choice is forced, so the checkbox is locked to match the action.
+            includeLoraSettingsCheckbox.checked = isReplace;
+            includeLoraSettingsCheckbox.disabled = true;
 
             updateLoraSettingsVisibility();
             refreshChannelHeadings();

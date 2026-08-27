@@ -338,11 +338,17 @@ class MeshtasticEncoder:
         Args:
             channels_data: List of channel configuration dictionaries
             lora_config_data: Optional LoRa configuration dictionary
-            
+            add_mode: Build an "add" URL, which never carries LoRa settings
+
         Returns:
             Dictionary containing URL, QR code data, and success status
         """
         try:
+            # Add URLs append channels to an existing config, so they must not
+            # carry LoRa settings; the importing client discards them anyway.
+            if add_mode:
+                lora_config_data = None
+
             # Create ChannelSet protobuf
             channel_set = apponly_pb2.ChannelSet()
             
