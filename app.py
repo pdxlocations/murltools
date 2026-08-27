@@ -11,7 +11,7 @@ from urllib.parse import urlparse, parse_qs
 from typing import Dict, Any, List, Optional, Tuple
 
 from flask import Flask, render_template, request, jsonify
-from meshtastic.protobuf import channel_pb2, apponly_pb2, mesh_pb2, config_pb2
+from meshtastic.protobuf import channel_pb2, apponly_pb2, mesh_pb2, config_pb2, admin_pb2
 from google.protobuf.message import DecodeError
 from google.protobuf.json_format import MessageToDict
 from PIL import Image
@@ -168,7 +168,21 @@ class MeshtasticDecoder:
     
     def _try_node_decoders(self, decoded_data: bytes, url: str, decode_attempts: list) -> Optional[Dict[str, Any]]:
         """Try node-related protobuf message types"""
-        
+
+        # Try SharedContact first: this is what /v/ contact URLs actually carry.
+        try:
+            contact = admin_pb2.SharedContact()
+            contact.ParseFromString(decoded_data)
+            contact_dict = MessageToDict(contact, preserving_proto_field_name=True)
+            if self._validate_shared_contact_data(contact_dict):
+                return {
+                    'success': True,
+                    'url': url,
+                    'SharedContact': contact_dict
+                }
+        except Exception as e:
+            decode_attempts.append(f'SharedContact failed: {str(e)}')
+
         # Try NodeInfo
         try:
             node = mesh_pb2.NodeInfo()
@@ -271,6 +285,11 @@ class MeshtasticDecoder:
         
         return None
     
+    def _validate_shared_contact_data(self, data: Dict[str, Any]) -> bool:
+        """Validate that decoded data looks like a real SharedContact"""
+        # A contact is only meaningful with an identity attached
+        return bool(data.get('node_num') and data.get('user'))
+
     def _validate_node_data(self, data: Dict[str, Any]) -> bool:
         """Validate that decoded data looks like real NodeInfo"""
         # NodeInfo should have node number or user info
