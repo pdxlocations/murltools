@@ -699,10 +699,10 @@ class MeshtasticEncoder:
 
     def encode_nodeinfo(self, node_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Encode NodeInfo into a Meshtastic node URL
+        Encode a shared contact into a Meshtastic contact URL
 
         Args:
-            node_data: NodeInfo configuration dictionary
+            node_data: Contact configuration dictionary
 
         Returns:
             Dictionary containing URL, QR code data, and success status
@@ -720,70 +720,33 @@ class MeshtasticEncoder:
                         return data[key]
                 return None
 
-            node = mesh_pb2.NodeInfo()
-            has_data = False
+            node = admin_pb2.SharedContact()
             has_required_identity = False
             node_num_value: Optional[int] = None
             user_id_value: Optional[str] = None
 
-            node_num_raw = _get_value(node_data, 'num')
+            node_num_raw = _get_value(node_data, 'num', 'node_num')
             if node_num_raw is not None:
                 node_num = node_num_raw
                 if isinstance(node_num, str):
                     node_num = int(node_num, 10)
                 node_num_value = int(node_num)
-                self._set_proto_field(node, 'num', node_num_value)
-                has_data = True
+                self._set_proto_field(node, 'node_num', node_num_value)
                 has_required_identity = True
 
-            # Optional NodeInfo fields
-            snr_value = _get_value(node_data, 'snr')
-            if snr_value is not None:
-                self._set_proto_field(node, 'snr', float(snr_value))
-                has_data = True
+            # SharedContact carries only these two flags alongside the identity
+            should_ignore_value = _get_value(node_data, 'is_ignored', 'isIgnored', 'should_ignore')
+            if should_ignore_value is not None:
+                self._set_proto_field(node, 'should_ignore', bool(should_ignore_value))
 
-            last_heard_value = _get_value(node_data, 'last_heard', 'lastHeard')
-            if last_heard_value is not None:
-                self._set_proto_field(node, 'last_heard', int(last_heard_value))
-                has_data = True
-
-            channel_value = _get_value(node_data, 'channel')
-            if channel_value is not None:
-                self._set_proto_field(node, 'channel', int(channel_value))
-                has_data = True
-
-            via_mqtt_value = _get_value(node_data, 'via_mqtt', 'viaMqtt')
-            if via_mqtt_value is not None:
-                self._set_proto_field(node, 'via_mqtt', bool(via_mqtt_value))
-                has_data = True
-
-            is_favorite_value = _get_value(node_data, 'is_favorite', 'isFavorite')
-            if is_favorite_value is not None:
-                self._set_proto_field(node, 'is_favorite', bool(is_favorite_value))
-                has_data = True
-
-            is_ignored_value = _get_value(node_data, 'is_ignored', 'isIgnored')
-            if is_ignored_value is not None:
-                self._set_proto_field(node, 'is_ignored', bool(is_ignored_value))
-                has_data = True
-
-            is_key_manually_verified_value = _get_value(
+            manually_verified_value = _get_value(
                 node_data,
                 'is_key_manually_verified',
-                'isKeyManuallyVerified'
+                'isKeyManuallyVerified',
+                'manually_verified'
             )
-            if is_key_manually_verified_value is not None:
-                self._set_proto_field(
-                    node,
-                    'is_key_manually_verified',
-                    bool(is_key_manually_verified_value)
-                )
-                has_data = True
-
-            hops_away_value = _get_value(node_data, 'hops_away', 'hopsAway')
-            if hops_away_value is not None:
-                self._set_proto_field(node, 'hops_away', int(hops_away_value))
-                has_data = True
+            if manually_verified_value is not None:
+                self._set_proto_field(node, 'manually_verified', bool(manually_verified_value))
 
             user_data = node_data.get('user')
             if isinstance(user_data, dict):
@@ -827,15 +790,7 @@ class MeshtasticEncoder:
                     self._set_proto_field(user, 'is_unmessagable', bool(is_unmessagable_value))
 
                 if user.ListFields():
-                    if 'user' in node.DESCRIPTOR.fields_by_name:
-                        node.user.CopyFrom(user)
-                        has_data = True
-
-            if not has_data:
-                return {
-                    'success': False,
-                    'error': 'Provide node number or node ID'
-                }
+                    node.user.CopyFrom(user)
 
             if not has_required_identity:
                 return {
@@ -845,12 +800,11 @@ class MeshtasticEncoder:
 
             # Auto-derive missing identity field after validation.
             if node_num_value is not None and not user_id_value:
-                if 'user' in node.DESCRIPTOR.fields_by_name:
-                    node.user.id = self._format_node_id(node_num_value)
+                node.user.id = self._format_node_id(node_num_value)
             elif node_num_value is None and user_id_value:
                 derived_num = self._parse_node_id(user_id_value)
                 if derived_num is not None:
-                    node.num = derived_num
+                    node.node_num = derived_num
 
             protobuf_data = node.SerializeToString()
             encoded_data = self._base64url_encode(protobuf_data)

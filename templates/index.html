@@ -563,7 +563,7 @@
         <div id="encode-tab" class="tab-content">
             <div class="subtab-nav">
                 <button class="subtab-btn active" data-subtab="encode-channels-tab">📡 Channel &amp; Modem URL</button>
-                <button class="subtab-btn" data-subtab="encode-nodeinfo-tab">🛰️ NodeInfo URL</button>
+                <button class="subtab-btn" data-subtab="encode-nodeinfo-tab">🛰️ Contact URL</button>
             </div>
 
             <div id="encode-channels-tab" class="subtab-content active">
@@ -821,8 +821,8 @@
 
             <div id="encode-nodeinfo-tab" class="subtab-content">
                 <div class="input-group">
-                    <h3>🛰️ NodeInfo URL</h3>
-                    <p>Create a Meshtastic node info URL for sharing basic node identity.</p>
+                    <h3>🛰️ Contact URL</h3>
+                    <p>Create a Meshtastic contact URL for sharing a node identity.</p>
                 </div>
 
                 <div class="input-group">
@@ -843,34 +843,8 @@
                 </div>
 
                 <div class="input-group">
-                    <h4 style="margin: 0 0 10px 0; color: #34495e;">Node Status</h4>
-                </div>
-
-                <div class="input-group">
-                    <label for="node-snr">SNR:</label>
-                    <input type="number" id="node-snr" step="0.1" placeholder="12.5" />
-                </div>
-
-                <div class="input-group">
-                    <label for="node-last-heard">Last Heard (epoch):</label>
-                    <input type="number" id="node-last-heard" step="1" placeholder="1770103625" />
-                </div>
-
-                <div class="input-group">
-                    <label for="node-channel">Channel:</label>
-                    <input type="number" id="node-channel" step="1" min="0" placeholder="0" />
-                </div>
-
-                <div class="input-group">
-                    <label>
-                        <input type="checkbox" id="node-via-mqtt" /> Via MQTT
-                    </label>
-                </div>
-
-                <div class="input-group">
-                    <label>
-                        <input type="checkbox" id="node-is-favorite" /> Favorite
-                    </label>
+                    <h4 style="margin: 0 0 10px 0; color: #34495e;">Import Flags</h4>
+                    <small style="color: #7f8c8d; font-size: 12px;">Applied by the importing client. Contact URLs carry no live status such as SNR or last heard.</small>
                 </div>
 
                 <div class="input-group">
@@ -883,11 +857,6 @@
                     <label>
                         <input type="checkbox" id="node-is-key-manually-verified" /> Key Manually Verified
                     </label>
-                </div>
-
-                <div class="input-group">
-                    <label for="node-hops-away">Hops Away:</label>
-                    <input type="number" id="node-hops-away" step="1" min="0" placeholder="1" />
                 </div>
 
                 <div class="input-group">
@@ -947,16 +916,16 @@
                 </div>
 
                 <div class="button-group">
-                    <button id="encode-nodeinfo-btn">🚀 Generate NodeInfo URL &amp; QR Code</button>
+                    <button id="encode-nodeinfo-btn">🚀 Generate Contact URL &amp; QR Code</button>
                     <button id="clear-nodeinfo-btn">🗑️ Clear Form</button>
                 </div>
 
                 <div class="loading" id="nodeinfo-loading" style="display: none;">
-                    <p>🔄 Generating NodeInfo URL and QR code...</p>
+                    <p>🔄 Generating contact URL and QR code...</p>
                 </div>
 
                 <div class="result" id="nodeinfo-result" style="display: none;">
-                    <!-- NodeInfo encoding results will be populated here -->
+                    <!-- Contact encoding results will be populated here -->
                 </div>
             </div>
         </div>
@@ -1618,14 +1587,8 @@
         const encodeResult = document.getElementById('encode-result');
         const nodeNumInput = document.getElementById('node-num');
         const nodeUserIdInput = document.getElementById('node-user-id');
-        const nodeSnrInput = document.getElementById('node-snr');
-        const nodeLastHeardInput = document.getElementById('node-last-heard');
-        const nodeChannelInput = document.getElementById('node-channel');
-        const nodeViaMqttInput = document.getElementById('node-via-mqtt');
-        const nodeIsFavoriteInput = document.getElementById('node-is-favorite');
         const nodeIsIgnoredInput = document.getElementById('node-is-ignored');
         const nodeIsKeyManuallyVerifiedInput = document.getElementById('node-is-key-manually-verified');
-        const nodeHopsAwayInput = document.getElementById('node-hops-away');
         const nodeHwModelInput = document.getElementById('node-hw-model');
         const nodeLongNameInput = document.getElementById('node-long-name');
         const nodeShortNameInput = document.getElementById('node-short-name');
@@ -2103,14 +2066,8 @@
         async function encodeNodeInfo() {
             const nodeNumValue = nodeNumInput.value.trim();
             const userIdRaw = nodeUserIdInput.value;
-            const snrRaw = nodeSnrInput.value;
-            const lastHeardRaw = nodeLastHeardInput.value;
-            const channelRaw = nodeChannelInput.value;
-            const viaMqttChecked = nodeViaMqttInput.checked;
-            const isFavoriteChecked = nodeIsFavoriteInput.checked;
             const isIgnoredChecked = nodeIsIgnoredInput.checked;
             const isKeyManuallyVerifiedChecked = nodeIsKeyManuallyVerifiedInput.checked;
-            const hopsAwayRaw = nodeHopsAwayInput.value;
             const hwModelRaw = nodeHwModelInput.value;
             const longNameRaw = nodeLongNameInput.value;
             const shortNameRaw = nodeShortNameInput.value;
@@ -2143,45 +2100,11 @@
                 nodeData.num = nodeNum;
             }
 
-            if (snrRaw.trim()) {
-                const snrValue = Number.parseFloat(snrRaw);
-                if (!Number.isNaN(snrValue)) {
-                    nodeData.snr = snrValue;
-                }
-            }
-
-            if (lastHeardRaw.trim()) {
-                const lastHeardValue = Number.parseInt(lastHeardRaw, 10);
-                if (!Number.isNaN(lastHeardValue)) {
-                    nodeData.last_heard = lastHeardValue;
-                }
-            }
-
-            if (channelRaw.trim()) {
-                const channelValue = Number.parseInt(channelRaw, 10);
-                if (!Number.isNaN(channelValue)) {
-                    nodeData.channel = channelValue;
-                }
-            }
-
-            if (viaMqttChecked) {
-                nodeData.via_mqtt = true;
-            }
-            if (isFavoriteChecked) {
-                nodeData.is_favorite = true;
-            }
             if (isIgnoredChecked) {
                 nodeData.is_ignored = true;
             }
             if (isKeyManuallyVerifiedChecked) {
                 nodeData.is_key_manually_verified = true;
-            }
-
-            if (hopsAwayRaw.trim()) {
-                const hopsAwayValue = Number.parseInt(hopsAwayRaw, 10);
-                if (!Number.isNaN(hopsAwayValue)) {
-                    nodeData.hops_away = hopsAwayValue;
-                }
             }
 
             const userData = {};
@@ -2452,14 +2375,8 @@
             nodeUserIdInput.value = '';
             nodeNumInput.dataset.autofilled = 'false';
             nodeUserIdInput.dataset.autofilled = 'false';
-            nodeSnrInput.value = '';
-            nodeLastHeardInput.value = '';
-            nodeChannelInput.value = '';
-            nodeViaMqttInput.checked = false;
-            nodeIsFavoriteInput.checked = false;
             nodeIsIgnoredInput.checked = false;
             nodeIsKeyManuallyVerifiedInput.checked = false;
-            nodeHopsAwayInput.value = '';
             nodeHwModelInput.value = '';
             nodeLongNameInput.value = '';
             nodeShortNameInput.value = '';
@@ -2473,21 +2390,22 @@
         }
 
         function populateNodeInfoFields(nodeData, userData) {
-            if (nodeData && nodeData.num !== undefined && nodeData.num !== null) {
-                nodeNumInput.value = String(nodeData.num);
+            // Accept both SharedContact names and the NodeInfo names older decodes produce.
+            const nodeNum = nodeData && (nodeData.node_num !== undefined ? nodeData.node_num : nodeData.num);
+            if (nodeNum !== undefined && nodeNum !== null) {
+                nodeNumInput.value = String(nodeNum);
             }
 
             if (nodeData) {
-                if (nodeData.snr !== undefined) nodeSnrInput.value = String(nodeData.snr);
-                if (nodeData.last_heard !== undefined) nodeLastHeardInput.value = String(nodeData.last_heard);
-                if (nodeData.channel !== undefined) nodeChannelInput.value = String(nodeData.channel);
-                if (nodeData.via_mqtt !== undefined) nodeViaMqttInput.checked = Boolean(nodeData.via_mqtt);
-                if (nodeData.is_favorite !== undefined) nodeIsFavoriteInput.checked = Boolean(nodeData.is_favorite);
-                if (nodeData.is_ignored !== undefined) nodeIsIgnoredInput.checked = Boolean(nodeData.is_ignored);
-                if (nodeData.is_key_manually_verified !== undefined) {
-                    nodeIsKeyManuallyVerifiedInput.checked = Boolean(nodeData.is_key_manually_verified);
+                const shouldIgnore = nodeData.should_ignore !== undefined ? nodeData.should_ignore : nodeData.is_ignored;
+                if (shouldIgnore !== undefined) nodeIsIgnoredInput.checked = Boolean(shouldIgnore);
+
+                const manuallyVerified = nodeData.manually_verified !== undefined
+                    ? nodeData.manually_verified
+                    : nodeData.is_key_manually_verified;
+                if (manuallyVerified !== undefined) {
+                    nodeIsKeyManuallyVerifiedInput.checked = Boolean(manuallyVerified);
                 }
-                if (nodeData.hops_away !== undefined) nodeHopsAwayInput.value = String(nodeData.hops_away);
             }
 
             if (userData) {
@@ -2589,20 +2507,21 @@
                     setActiveEncodeSubtab('encode-channels-tab');
                 }
                 
+                const sharedContact = decodedData.SharedContact || null;
                 const nodeInfo = decodedData.Node || null;
                 const userInfo = decodedData.User || null;
                 const myNodeInfo = decodedData.MyNodeInfo || null;
                 const config = decodedData.Config || decodedData;
                 console.log('Loading config:', config);
-                
+
                 // Add a small delay to ensure tab switching is complete
                 setTimeout(() => {
-                    if (nodeInfo || userInfo || myNodeInfo) {
+                    if (sharedContact || nodeInfo || userInfo || myNodeInfo) {
                         setActiveEncodeSubtab('encode-nodeinfo-tab');
                         clearNodeInfoForm();
 
-                        const nodeData = nodeInfo || myNodeInfo || {};
-                        const userData = (nodeInfo && nodeInfo.user) || (myNodeInfo && myNodeInfo.user) || userInfo || null;
+                        const nodeData = sharedContact || nodeInfo || myNodeInfo || {};
+                        const userData = nodeData.user || userInfo || null;
                         populateNodeInfoFields(nodeData, userData);
                         return;
                     }
