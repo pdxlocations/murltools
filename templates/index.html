@@ -2610,6 +2610,12 @@
                     setActiveEncodeSubtab('encode-channels-tab');
                     clearEncodeForm();
 
+                    // Keep the action the URL was built with, so an add URL is not reloaded as a replace.
+                    if (channelActionSelect && decodedData.channel_action) {
+                        channelActionSelect.value = decodedData.channel_action;
+                        syncLoraCheckboxWithChannelAction();
+                    }
+
                     // Handle different data structures
                     const configChannels = config.channels || config.settings;
                     if (configChannels && Array.isArray(configChannels)) {

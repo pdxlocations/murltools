@@ -8,7 +8,7 @@ import base64
 import json
 import io
 from urllib.parse import urlparse, parse_qs
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 from flask import Flask, render_template, request, jsonify
 from meshtastic.protobuf import channel_pb2, apponly_pb2, mesh_pb2, config_pb2
@@ -63,7 +63,9 @@ class MeshtasticDecoder:
                     encoded_data = query_params['c'][0]
                 else:
                     raise ValueError("No encoded channel data found in URL")
-            
+
+            encoded_data, add_mode = self._split_add_flag(encoded_data, parsed_url.query)
+
             # Decode the base64url encoded data
             decoded_data = self._base64url_decode(encoded_data)
             
@@ -79,17 +81,17 @@ class MeshtasticDecoder:
                 result = self._try_node_decoders(decoded_data, url, decode_attempts)
                 if result:
                     return result
-                    
+
                 # Then try channel types as fallback
-                result = self._try_channel_decoders(decoded_data, url, decode_attempts)
+                result = self._try_channel_decoders(decoded_data, url, decode_attempts, add_mode)
                 if result:
                     return result
             else:
                 # For channel URLs or unknown, try channel types first
-                result = self._try_channel_decoders(decoded_data, url, decode_attempts)
+                result = self._try_channel_decoders(decoded_data, url, decode_attempts, add_mode)
                 if result:
                     return result
-                    
+
                 # Then try node types as fallback
                 result = self._try_node_decoders(decoded_data, url, decode_attempts)
                 if result:
@@ -129,6 +131,22 @@ class MeshtasticDecoder:
                 'url': url
             }
     
+    def _split_add_flag(self, encoded_data: str, query: str) -> Tuple[str, bool]:
+        """Separate the payload from the 'add' flag, which newer clients put in the
+        query string (?add=true#data) and older ones appended to the fragment."""
+        add_mode = self._is_add_true(parse_qs(query))
+
+        if '?' in encoded_data:
+            encoded_data, _, fragment_query = encoded_data.partition('?')
+            add_mode = add_mode or self._is_add_true(parse_qs(fragment_query))
+
+        return encoded_data, add_mode
+
+    @staticmethod
+    def _is_add_true(query_params: Dict[str, List[str]]) -> bool:
+        """Check whether an 'add=true' flag is present in parsed query parameters."""
+        return any(value.strip().lower() == 'true' for value in query_params.get('add', []))
+
     def _base64url_decode(self, data: str) -> bytes:
         """Decode base64url encoded string"""
         # Add padding if necessary
@@ -211,25 +229,31 @@ class MeshtasticDecoder:
         
         return None
     
-    def _try_channel_decoders(self, decoded_data: bytes, url: str, decode_attempts: list) -> Optional[Dict[str, Any]]:
+    def _try_channel_decoders(self, decoded_data: bytes, url: str, decode_attempts: list, add_mode: bool = False) -> Optional[Dict[str, Any]]:
         """Try channel-related protobuf message types"""
-        
+
+        channel_action = 'add' if add_mode else 'replace'
+
         # Try to decode as ChannelSet first
         try:
             channel_set = apponly_pb2.ChannelSet()
             channel_set.ParseFromString(decoded_data)
             config_dict = MessageToDict(channel_set, preserving_proto_field_name=True)
             config_dict = self._normalize_config_dict(config_dict)
+            # Add URLs never apply LoRa settings, so drop any the sender included.
+            if add_mode:
+                config_dict.pop('lora_config', None)
             # Validate that this looks like real channel data
             if self._validate_channel_set_data(config_dict):
                 return {
                     'success': True,
                     'url': url,
+                    'channel_action': channel_action,
                     'Config': config_dict
                 }
         except Exception as e:
             decode_attempts.append(f'ChannelSet failed: {str(e)}')
-        
+
         # Try to decode as single Channel
         try:
             channel = channel_pb2.Channel()
@@ -239,6 +263,7 @@ class MeshtasticDecoder:
                 return {
                     'success': True,
                     'url': url,
+                    'channel_action': channel_action,
                     'Config': config_dict
                 }
         except Exception as e:
