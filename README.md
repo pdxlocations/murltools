@@ -17,6 +17,8 @@ A comprehensive Python Flask application for encoding, decoding, and managing Me
 - **Instant QR Codes**: Generate scannable QR codes for easy device configuration
 - **Mobile-Friendly**: Perfect for configuring devices in the field
 - **High-Quality Output**: PNG format with error correction
+- **QR Centre**: optionally reserve the middle of the code for an uploaded image or a
+  blank square. Off by default
 
 ### 🔍 **URL Decoding & Analysis**
 - **Universal Decoder**: Decode channel (`/e/`) and shared-contact (`/v/`) URLs
@@ -205,6 +207,24 @@ curl -X POST http://localhost:5002/encode \
     }
   }'
 ```
+
+#### QR Centre
+
+Both encode endpoints accept an optional `qr_embed` object:
+
+```json
+{ "mode": "blank", "ratio": 0.22 }
+{ "mode": "image", "ratio": 0.22, "image": "data:image/png;base64,..." }
+```
+
+- `mode`: `none` (default), `blank` for a reserved white square, or `image`
+- `ratio`: 0.10–0.30 of the code width; the default is 0.22
+- `image`: a data URL or bare base64, up to 2 MB
+
+Reserving the centre forces error correction **H**, which the `qrcode` library requires and
+which makes the code noticeably denser — roughly 45% more modules per side. The response
+reports `error_correction` and `modules` so this is visible. Scan-test any code you intend to
+print, especially at small sizes.
 
 `channel_action` values:
 - `replace` (default): requires `lora_config`
