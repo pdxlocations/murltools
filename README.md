@@ -1,6 +1,16 @@
 # Meshtastic URL Tools (murltools)
 
-A comprehensive Python Flask application for encoding, decoding, and managing Meshtastic channel URLs. Create custom channel configurations, generate QR codes, decode existing URLs, and seamlessly transfer settings between configurations.
+A tool for encoding, decoding, and managing Meshtastic channel URLs. Create custom channel configurations, generate QR codes, decode existing URLs, and seamlessly transfer settings between configurations.
+
+**There are two ways to run it, from one codebase:**
+
+| | | |
+|---|---|---|
+| **Flask app** | `./run.sh` | Python does the protobuf work; the page calls back to it |
+| **Single page** | open `murltools.html` | No Python, no server, no network — everything runs in the browser |
+
+`murltools.html` is *compiled from* the Flask frontend, so `templates/index.html` is the
+single source for markup, CSS and UI logic in both. See [Single-file build](#single-file-build).
 
 ## Features
 
@@ -36,6 +46,32 @@ A comprehensive Python Flask application for encoding, decoding, and managing Me
 - **JSON Output**: Machine-readable output for integration
 - **Summary Views**: Human-readable summaries for quick analysis
 
+## Single-file build
+
+`murltools.html` is the whole tool as one self-contained page — no Python, no server, no
+network. Open it from disk or drop it on any static host. It does everything the Flask app
+does except read QR images that need OpenCV preprocessing.
+
+Rebuild it after changing `templates/index.html` or anything under `tools/all_in_one/`:
+
+```bash
+python tools/build_all_in_one.py
+```
+
+Building needs the `meshtastic` package installed; *running* the result needs nothing at
+all. Forgetting to rebuild is the one way the two can disagree, so CI does the same build
+on every pull request and fails if `murltools.html` is out of date.
+
+The page keeps the template's markup and CSS unchanged; a `fetch` shim answers the same
+routes Flask serves, so the page's own JavaScript is untouched. Enum names come from the
+installed `meshtastic` package at build time rather than being hand-maintained, so they
+track the dependency — rerun the build after upgrading it.
+
+Bundled third-party code, both GPLv3-compatible:
+
+- [QR Code Generator for JavaScript](http://www.d-project.com/) © 2009 Kazuhiko Arase, MIT
+- [jsQR](https://github.com/cozmo/jsQR) © 2016 Cosmo Wolfe, Apache 2.0
+
 ## Installation
 
 1. **Clone or download the project files**
@@ -53,7 +89,7 @@ A comprehensive Python Flask application for encoding, decoding, and managing Me
    python app.py
    ```
 
-2. **Open your browser and navigate to:** `http://localhost:5002`
+2. **Open your browser and navigate to:** `http://localhost:5001`
 
 3. **Choose your workflow:**
 
@@ -182,14 +218,14 @@ When running as a Flask app, the following endpoints are available:
 
 #### Decode URL
 ```bash
-curl -X POST http://localhost:5002/decode \
+curl -X POST http://localhost:5001/decode \
   -H "Content-Type: application/json" \
   -d '{"url": "https://meshtastic.org/e/#Cg0SAQEaBFRlc3Q6AgggEgQIATgB"}'
 ```
 
 #### Encode Configuration
 ```bash
-curl -X POST http://localhost:5002/encode \
+curl -X POST http://localhost:5001/encode \
   -H "Content-Type: application/json" \
   -d '{
     "channel_action": "replace",
@@ -262,13 +298,27 @@ When decoding fails, the application provides:
 ### Project Structure
 ```
 murltools/
-├── app.py                 # Flask application with encoder/decoder logic
-├── decode.py             # Command-line interface
-├── requirements.txt      # Python dependencies
+├── app.py                       # Flask application with encoder/decoder logic
+├── decode.py                    # Command-line interface
+├── decode.sh                    # CLI wrapper
+├── run.sh                       # Starts the Flask app on :5001
+├── requirements.txt             # Python dependencies
 ├── templates/
-│   └── index.html       # Complete web interface with tabs
-└── README.md            # This file
+│   └── index.html               # The web interface — source of truth for both builds
+├── murltools.html               # Generated single-file build. Do not edit by hand
+├── tools/
+│   ├── build_all_in_one.py      # Compiles templates/index.html -> murltools.html
+│   └── all_in_one/
+│       ├── protobuf.js          # Minimal protobuf reader/writer
+│       ├── meshtastic.js        # Enum tables and URL encode/decode
+│       ├── backend.js           # fetch shim answering the Flask routes in-browser
+│       └── vendor/              # jsQR (Apache 2.0), qrcode.js (MIT)
+└── README.md                    # This file
 ```
+
+`murltools.html` is a build artifact but is committed on purpose — being downloadable
+and openable on its own is the point of it. CI rebuilds it on every pull request and
+fails if the committed copy is stale, so the two builds cannot drift apart unnoticed.
 
 ### Dependencies
 - **Flask**: Web framework for the UI
