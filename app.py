@@ -7,6 +7,7 @@ A Flask web application that decodes Meshtastic channel URLs and their encoded p
 import base64
 import json
 import io
+import re
 from urllib.parse import urlparse, parse_qs
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -24,6 +25,9 @@ from qrcode.constants import ERROR_CORRECT_L
 from io import BytesIO
 
 app = Flask(__name__)
+
+# ChannelSettings.name is capped at 12 bytes including the null terminator
+MAX_CHANNEL_NAME_BYTES = 11
 
 class MeshtasticDecoder:
     """Handles decoding of Meshtastic channel URLs and protobuf data"""
@@ -413,8 +417,15 @@ class MeshtasticEncoder:
                 settings = channel_pb2.ChannelSettings()
                 
                 if channel_data.get('name'):
-                    settings.name = channel_data['name']
-                
+                    name = str(channel_data['name'])
+                    # channel.proto allows 12 bytes including the null terminator
+                    if len(name.encode('utf-8')) > MAX_CHANNEL_NAME_BYTES:
+                        raise ValueError(
+                            f"Channel name '{name}' exceeds {MAX_CHANNEL_NAME_BYTES} bytes"
+                        )
+                    settings.name = name
+
+
                 if channel_data.get('psk'):
                     # Convert PSK from hex string or base64 to bytes
                     psk_str = channel_data['psk']
@@ -882,11 +893,11 @@ class QRCodeProcessor:
     def _is_meshtastic_url(self, url: str) -> bool:
         """Check if a URL looks like a Meshtastic URL"""
         url_lower = url.lower()
-        return (
-            'meshtastic.org' in url_lower or
-            ('/e/#' in url_lower and len(url) > 30) or
-            ('/v/#' in url_lower and len(url) > 30)
-        )
+        if 'meshtastic.org' in url_lower:
+            return True
+
+        # Match /e/ and /v/ with or without the trailing slash, as clients accept both
+        return len(url) > 30 and bool(re.search(r'/[ev]/?[#?]', url_lower))
 
 # Initialize decoder, encoder, and QR processor
 decoder = MeshtasticDecoder()
