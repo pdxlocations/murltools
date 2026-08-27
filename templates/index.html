@@ -805,6 +805,28 @@
                     </div>
                 </div>
                 
+                <div class="input-group">
+                    <h4 style="margin: 20px 0 10px 0; color: #34495e;">QR Centre</h4>
+                    <label for="channel-qr-embed">Centre of QR code:</label>
+                    <select id="channel-qr-embed">
+                        <option value="none" selected>Nothing (smallest code)</option>
+                        <option value="blank">Blank square</option>
+                        <option value="image">Image...</option>
+                    </select>
+                    <small style="color: #7f8c8d; font-size: 12px;">Reserving the centre raises error correction to H, making the code denser. Test any code you intend to print.</small>
+                </div>
+
+                <div id="channel-qr-embed-options" class="input-group" style="display: none; margin-left: 20px;">
+                    <div id="channel-qr-image-row" style="display: none;">
+                        <label for="channel-qr-image">Image file:</label>
+                        <input type="file" id="channel-qr-image" accept="image/*" />
+                        <small style="color: #7f8c8d; font-size: 12px;">PNG with transparency works best. Max 2 MB.</small>
+                    </div>
+                    <label for="channel-qr-ratio" style="margin-top: 10px; display: block;">Size:</label>
+                    <input type="range" id="channel-qr-ratio" min="10" max="30" value="22" style="width: 100%;" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Covers <span id="channel-qr-ratio-display">22</span>% of the code width. Above 30% it stops scanning.</small>
+                </div>
+
                 <div class="button-group">
                     <button id="encode-btn">🚀 Generate URL &amp; QR Code</button>
                     <button id="clear-encode-btn">🗑️ Clear Form</button>
@@ -913,6 +935,28 @@
                         <input type="checkbox" id="node-is-unmessagable" /> Unmessagable
                     </label>
                     <small style="color: #7f8c8d; font-size: 12px;">Indicates the node cannot be messaged.</small>
+                </div>
+
+                <div class="input-group">
+                    <h4 style="margin: 20px 0 10px 0; color: #34495e;">QR Centre</h4>
+                    <label for="contact-qr-embed">Centre of QR code:</label>
+                    <select id="contact-qr-embed">
+                        <option value="none" selected>Nothing (smallest code)</option>
+                        <option value="blank">Blank square</option>
+                        <option value="image">Image...</option>
+                    </select>
+                    <small style="color: #7f8c8d; font-size: 12px;">Reserving the centre raises error correction to H, making the code denser. Test any code you intend to print.</small>
+                </div>
+
+                <div id="contact-qr-embed-options" class="input-group" style="display: none; margin-left: 20px;">
+                    <div id="contact-qr-image-row" style="display: none;">
+                        <label for="contact-qr-image">Image file:</label>
+                        <input type="file" id="contact-qr-image" accept="image/*" />
+                        <small style="color: #7f8c8d; font-size: 12px;">PNG with transparency works best. Max 2 MB.</small>
+                    </div>
+                    <label for="contact-qr-ratio" style="margin-top: 10px; display: block;">Size:</label>
+                    <input type="range" id="contact-qr-ratio" min="10" max="30" value="22" style="width: 100%;" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Covers <span id="contact-qr-ratio-display">22</span>% of the code width. Above 30% it stops scanning.</small>
                 </div>
 
                 <div class="button-group">
@@ -1707,6 +1751,76 @@
             }
         });
         
+        // Centre-embed controls, shared by the channel and contact forms
+        const qrEmbedImages = {};
+
+        function initQrEmbedControls(prefix) {
+            const mode = document.getElementById(`${prefix}-qr-embed`);
+            const options = document.getElementById(`${prefix}-qr-embed-options`);
+            const imageRow = document.getElementById(`${prefix}-qr-image-row`);
+            const fileInput = document.getElementById(`${prefix}-qr-image`);
+            const ratio = document.getElementById(`${prefix}-qr-ratio`);
+            const ratioDisplay = document.getElementById(`${prefix}-qr-ratio-display`);
+
+            mode.addEventListener('change', function() {
+                options.style.display = this.value === 'none' ? 'none' : 'block';
+                imageRow.style.display = this.value === 'image' ? 'block' : 'none';
+            });
+
+            ratio.addEventListener('input', function() {
+                ratioDisplay.textContent = this.value;
+            });
+
+            fileInput.addEventListener('change', function() {
+                const file = this.files && this.files[0];
+                if (!file) {
+                    delete qrEmbedImages[prefix];
+                    return;
+                }
+                if (file.size > 2 * 1024 * 1024) {
+                    alert('Image must be 2 MB or smaller.');
+                    this.value = '';
+                    delete qrEmbedImages[prefix];
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => { qrEmbedImages[prefix] = reader.result; };
+                reader.onerror = () => {
+                    alert('Could not read that image.');
+                    delete qrEmbedImages[prefix];
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function collectQrEmbed(prefix) {
+            const mode = document.getElementById(`${prefix}-qr-embed`).value;
+            if (mode === 'none') {
+                return null;
+            }
+
+            const ratio = parseInt(document.getElementById(`${prefix}-qr-ratio`).value, 10) / 100;
+            if (mode === 'blank') {
+                return { mode: 'blank', ratio: ratio };
+            }
+
+            if (!qrEmbedImages[prefix]) {
+                alert('Choose an image, or set the QR centre to Blank square or Nothing.');
+                return undefined;
+            }
+            return { mode: 'image', image: qrEmbedImages[prefix], ratio: ratio };
+        }
+
+        function resetQrEmbedControls(prefix) {
+            delete qrEmbedImages[prefix];
+            document.getElementById(`${prefix}-qr-embed`).value = 'none';
+            document.getElementById(`${prefix}-qr-embed-options`).style.display = 'none';
+            document.getElementById(`${prefix}-qr-image-row`).style.display = 'none';
+            document.getElementById(`${prefix}-qr-image`).value = '';
+            document.getElementById(`${prefix}-qr-ratio`).value = '22';
+            document.getElementById(`${prefix}-qr-ratio-display`).textContent = '22';
+        }
+
         // Single byte 0x01, which every client expands to the standard public key
         const DEFAULT_KEY_PSK = 'AQ==';
 
@@ -2009,12 +2123,18 @@
                 return;
             }
             
+            const qrEmbed = collectQrEmbed('channel');
+            if (qrEmbed === undefined) {
+                return;
+            }
+
             const requestData = {
                 channels: channels,
                 lora_config: loraConfig,
-                channel_action: channelAction
+                channel_action: channelAction,
+                qr_embed: qrEmbed
             };
-            
+
             // Show loading state
             encodeLoading.style.display = 'block';
             encodeResult.style.display = 'none';
@@ -2150,6 +2270,11 @@
                 nodeData.user = userData;
             }
 
+            const qrEmbed = collectQrEmbed('contact');
+            if (qrEmbed === undefined) {
+                return;
+            }
+
             nodeinfoLoading.style.display = 'block';
             nodeinfoResult.style.display = 'none';
             encodeNodeinfoBtn.disabled = true;
@@ -2160,7 +2285,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ node: nodeData })
+                    body: JSON.stringify({ node: nodeData, qr_embed: qrEmbed })
                 });
 
                 const data = await response.json();
@@ -2205,6 +2330,9 @@
                 html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; max-width: 300px; height: auto;" />`;
                 html += '</div>';
                 html += `<button class="copy-button" onclick="downloadQRCode('${data.qr_code.image_base64}', 'meshtastic-channel.png')">💾 Download QR Code</button>`;
+                if (data.qr_code.error_correction === 'H') {
+                    html += `<div style="font-size: 12px; color: #7f8c8d; margin-top: 6px;">Error correction H, ${data.qr_code.modules}&times;${data.qr_code.modules} modules &mdash; denser than usual because the centre is reserved. Scan-test before printing.</div>`;
+                }
                 html += '</div>';
             }
             
@@ -2287,6 +2415,9 @@
                 html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; max-width: 300px; height: auto;" />`;
                 html += '</div>';
                 html += `<button class="copy-button" onclick="downloadQRCode('${data.qr_code.image_base64}', 'meshtastic-nodeinfo.png')">💾 Download QR Code</button>`;
+                if (data.qr_code.error_correction === 'H') {
+                    html += `<div style="font-size: 12px; color: #7f8c8d; margin-top: 6px;">Error correction H, ${data.qr_code.modules}&times;${data.qr_code.modules} modules &mdash; denser than usual because the centre is reserved. Scan-test before printing.</div>`;
+                }
                 html += '</div>';
             }
 
@@ -2336,6 +2467,8 @@
         }
         
         function clearEncodeForm() {
+            resetQrEmbedControls('channel');
+
             // Reset number of channels to 1
             numChannelsSelect.value = '1';
             generateChannelForms(1);
@@ -2382,6 +2515,7 @@
         }
 
         function clearNodeInfoForm() {
+            resetQrEmbedControls('contact');
             nodeNumInput.value = '';
             nodeUserIdInput.value = '';
             nodeNumInput.dataset.autofilled = 'false';
@@ -3047,6 +3181,8 @@
             urlInput.focus();
             initNodeInfoEnums();
             initLoRaEnums();
+            initQrEmbedControls('channel');
+            initQrEmbedControls('contact');
         });
     </script>
     <footer style="margin: 24px 0 16px; text-align: center; color: #6b7280; font-size: 14px;">
