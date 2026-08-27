@@ -1860,6 +1860,26 @@
             return value === DEFAULT_KEY_PSK || value.toLowerCase() === '0x01';
         }
 
+        function isPublicKeyPsk(psk) {
+            const value = (psk || '').trim();
+            if (!value) {
+                return true;
+            }
+
+            if (/^0x[0-9a-f]*$/i.test(value)) {
+                const hex = value.slice(2);
+                return hex.length % 2 === 0 && hex.length / 2 <= 1;
+            }
+
+            try {
+                return atob(value).length <= 1;
+            } catch (_) {
+                // The encoder will report an invalid PSK separately. Do not make a
+                // privacy claim here when its byte length cannot be determined.
+                return false;
+            }
+        }
+
         // The firmware treats a PSK of one byte or less as publicly decryptable and clamps
         // position to MAX_POSITION_PRECISION_PUBLIC_KEY bits before transmitting.
         const MAX_PRECISION_PUBLIC_KEY = 15;
@@ -1874,7 +1894,7 @@
                 return;
             }
 
-            const publicKey = isDefaultKeyPsk(psk.value) || !psk.value.trim();
+            const publicKey = isPublicKeyPsk(psk.value);
             const precision = precise.checked ? 32 : parseInt(slider.value, 10);
             const show = publicKey && positionEnabled.checked && precision > MAX_PRECISION_PUBLIC_KEY;
             warning.style.display = show ? 'block' : 'none';
@@ -2037,6 +2057,7 @@
                     initialDistanceStr = initialMeters + 'm';
                 }
                 precisionDisplay.textContent = `${initialBits} bits (~${initialDistanceStr})`;
+                refreshPreciseLocationWarning(i);
             }
         }
 
@@ -3021,6 +3042,8 @@
                 const moduleSettings = channelSettings.module_settings || {};
                 muteField.checked = Boolean(moduleSettings.is_muted);
             }
+
+            refreshPreciseLocationWarning(channelIndex);
             
             // Set channel role if needed (update the hidden field)
             const roleField = document.getElementById(`channel-${channelIndex}-role`);
