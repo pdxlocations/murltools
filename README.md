@@ -36,6 +36,28 @@ A comprehensive Python Flask application for encoding, decoding, and managing Me
 - **JSON Output**: Machine-readable output for integration
 - **Summary Views**: Human-readable summaries for quick analysis
 
+## Single-file build
+
+`murltools.html` is the whole tool as one self-contained page — no Python, no server, no
+network. Open it from disk or drop it on any static host. It does everything the Flask app
+does except read QR images that need OpenCV preprocessing.
+
+Rebuild it after changing `templates/index.html` or anything under `tools/all_in_one/`:
+
+```bash
+python tools/build_all_in_one.py
+```
+
+The page keeps the template's markup and CSS unchanged; a `fetch` shim answers the same
+routes Flask serves, so the page's own JavaScript is untouched. Enum names come from the
+installed `meshtastic` package at build time rather than being hand-maintained, so they
+track the dependency — rerun the build after upgrading it.
+
+Bundled third-party code, both GPLv3-compatible:
+
+- [QR Code Generator for JavaScript](http://www.d-project.com/) © 2009 Kazuhiko Arase, MIT
+- [jsQR](https://github.com/cozmo/jsQR) © 2016 Cosmo Wolfe, Apache 2.0
+
 ## Installation
 
 1. **Clone or download the project files**
