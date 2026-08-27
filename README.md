@@ -308,9 +308,20 @@ This makes it easy to:
 - **10-19** — approximate, roughly 19 km down to 37 m; 13 is the default
 - **32** — precise, full resolution
 
-Anything else is rejected. Note that a channel whose PSK is one byte or less (the default
-key, or no key) is treated as low entropy, so pairing it with precise location broadcasts
-an exact position readable by anyone — clients flag that combination as insecure.
+Anything else is rejected.
+
+**On a public-key channel the firmware caps this at 15 bits.** A PSK of one byte or less —
+the default key, any single-byte alias, or no key at all — is publicly decryptable, and
+`getPositionPrecisionForChannel()` clamps precision to `MAX_POSITION_PRECISION_PUBLIC_KEY`
+(15, roughly a 700 m cell) before transmitting. So on a default-key channel the effective
+range is **0 or 10-15**: setting 16-19 or 32 is carried in the URL but sent as 15.
+
+Related firmware behaviour worth knowing when reading a decoded URL:
+
+- Position sharing is opt-in — a stock channel ships with `position_precision = 0`
+- A channel with no `module_settings` at all is treated as 0, not as precise
+- Disabled channels and event channels always report 0
+- MQTT map reporting accepts only 12-15
 
 ## Security Considerations
 

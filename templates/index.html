@@ -1860,19 +1860,23 @@
             return value === DEFAULT_KEY_PSK || value.toLowerCase() === '0x01';
         }
 
-        // Clients treat a PSK of one byte or less as low entropy, so precise location
-        // on such a channel is broadcast in the clear.
+        // The firmware treats a PSK of one byte or less as publicly decryptable and clamps
+        // position to MAX_POSITION_PRECISION_PUBLIC_KEY bits before transmitting.
+        const MAX_PRECISION_PUBLIC_KEY = 15;
+
         function refreshPreciseLocationWarning(index) {
             const warning = document.getElementById(`channel-${index}-precise-warning`);
             const psk = document.getElementById(`channel-${index}-psk`);
             const positionEnabled = document.getElementById(`channel-${index}-position-enabled`);
             const precise = document.getElementById(`channel-${index}-precise-location`);
-            if (!warning || !psk || !positionEnabled || !precise) {
+            const slider = document.getElementById(`channel-${index}-precision-slider`);
+            if (!warning || !psk || !positionEnabled || !precise || !slider) {
                 return;
             }
 
-            const lowEntropy = isDefaultKeyPsk(psk.value) || !psk.value.trim();
-            const show = lowEntropy && positionEnabled.checked && precise.checked;
+            const publicKey = isDefaultKeyPsk(psk.value) || !psk.value.trim();
+            const precision = precise.checked ? 32 : parseInt(slider.value, 10);
+            const show = publicKey && positionEnabled.checked && precision > MAX_PRECISION_PUBLIC_KEY;
             warning.style.display = show ? 'block' : 'none';
         }
 
@@ -1926,7 +1930,7 @@
                             <input type="checkbox" id="channel-${i}-precise-location" checked /> Precise Location
                         </label>
                         <small style="color: #7f8c8d; font-size: 12px;">Full precision (32 bits, ~0.5cm accuracy). Uncheck for approximate location.</small>
-                        <small id="channel-${i}-precise-warning" style="display: none; color: #c0392b; font-size: 12px;">⚠️ Precise location on a default-key channel is readable by anyone. Clients flag this combination as insecure.</small>
+                        <small id="channel-${i}-precise-warning" style="display: none; color: #c0392b; font-size: 12px;">⚠️ This channel uses a public key, so the firmware caps position at 15 bits (~700 m) on the wire. Anything higher is transmitted as 15.</small>
 
                         <div id="channel-${i}-approximate-settings" style="display: none; margin-top: 10px;">
                             <label for="channel-${i}-precision-slider">Approximate Location Precision:</label>
@@ -2011,6 +2015,7 @@
                 
                 // Update precision display when slider changes
                 precisionSlider.addEventListener('input', function() {
+                    refreshPreciseLocationWarning(i);
                     const bits = parseInt(this.value);
                     const meters = Math.round(23905787.925008 * Math.pow(0.5, bits));
                     let distanceStr;
