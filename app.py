@@ -580,122 +580,21 @@ class MeshtasticEncoder:
                 'error': f'Failed to encode channel set: {str(e)}'
             }
     
-    def encode_single_channel(self, channel_data: Dict[str, Any], add_mode: bool = False) -> Dict[str, Any]:
+    def encode_single_channel(self, channel_data: Dict[str, Any], lora_config_data: Optional[Dict[str, Any]] = None, add_mode: bool = False) -> Dict[str, Any]:
         """
-        Encode a single channel into a Channel protobuf and create Meshtastic URL
-        
+        Encode a single channel into a Meshtastic URL
+
         Args:
             channel_data: Channel configuration dictionary
-            
+            lora_config_data: Optional LoRa configuration dictionary
+            add_mode: Build an "add" URL, which never carries LoRa settings
+
         Returns:
             Dictionary containing URL, QR code data, and success status
         """
-        try:
-            # Create Channel protobuf
-            channel = channel_pb2.Channel()
-            channel.index = channel_data.get('index', 0)
-            
-            # Set channel role
-            role_map = {
-                'primary': channel_pb2.Channel.Role.PRIMARY,
-                'secondary': channel_pb2.Channel.Role.SECONDARY,
-                'disabled': channel_pb2.Channel.Role.DISABLED
-            }
-            channel.role = role_map.get(channel_data.get('role', 'secondary'), channel_pb2.Channel.Role.SECONDARY)
-            
-            # Create channel settings
-            settings = channel_pb2.ChannelSettings()
-            
-            if channel_data.get('name'):
-                settings.name = channel_data['name']
-            
-            if channel_data.get('psk'):
-                # Convert PSK from hex string or base64 to bytes
-                psk_str = channel_data['psk']
-                try:
-                    if psk_str.startswith('0x'):
-                        settings.psk = bytes.fromhex(psk_str[2:])
-                    else:
-                        # Try as base64
-                        settings.psk = base64.b64decode(psk_str)
-                except:
-                    # If all else fails, use as UTF-8 bytes (not recommended but fallback)
-                    settings.psk = psk_str.encode('utf-8')[:32]  # Limit to 32 bytes
-            
-            # Set uplink/downlink enabled flags
-            if 'uplink_enabled' in channel_data:
-                settings.uplink_enabled = bool(channel_data['uplink_enabled'])
-            if 'downlink_enabled' in channel_data:
-                settings.downlink_enabled = bool(channel_data['downlink_enabled'])
-            
-            # Always create module settings to ensure position_precision and is_muted are explicit
-            module_settings = channel_pb2.ModuleSettings()
-
-            if 'module_settings' in channel_data and isinstance(channel_data['module_settings'], dict):
-                ms = channel_data['module_settings']
-
-                if 'position_precision' in ms and ms['position_precision'] is not None:
-                    module_settings.position_precision = int(ms['position_precision'])
-                else:
-                    # Default: position enabled with full precision
-                    module_settings.position_precision = 32
-
-                # Per-channel mute flag (matches meshtastic/channel.proto: ModuleSettings.is_muted)
-                for key in ('is_muted', 'muted', 'mute'):
-                    if key in ms:
-                        module_settings.is_muted = bool(ms[key])
-                        break
-            else:
-                # Default: position enabled with full precision
-                module_settings.position_precision = 32
-            
-            # Always set module settings
-            settings.module_settings.CopyFrom(module_settings)
-            
-            channel.settings.CopyFrom(settings)
-            
-            # Serialize the Channel to bytes
-            protobuf_data = channel.SerializeToString()
-            
-            # Encode as base64url
-            encoded_data = self._base64url_encode(protobuf_data)
-            
-            # Create Meshtastic URL
-            url = self._build_channel_url(encoded_data, add_mode)
-            
-            # Generate QR code
-            qr_code_data = self._generate_qr_code(url)
-            
-            # Also decode the generated URL to provide config data in same format as decoder
-            decoder_instance = MeshtasticDecoder()
-            decoded_result = decoder_instance.decode_channel_url(url)
-            
-            # Build the response with both encoding and decoding information
-            response = {
-                'success': True,
-                'url': url,
-                'qr_code': qr_code_data,
-                'encoded_size': len(protobuf_data),
-                'channel_action': 'add' if add_mode else 'replace'
-            }
-            
-            # Add decoded configuration data if decoding was successful
-            if decoded_result.get('success'):
-                if 'Config' in decoded_result:
-                    response['Config'] = decoded_result['Config']
-                else:
-                    # Handle other message types that might be returned
-                    for key in decoded_result:
-                        if key not in ['success', 'url']:
-                            response[key] = decoded_result[key]
-            
-            return response
-            
-        except Exception as e:
-            return {
-                'success': False,
-                'error': f'Failed to encode single channel: {str(e)}'
-            }
+        # A URL always carries a ChannelSet, never a bare Channel, so a lone
+        # channel is just a one-entry set.
+        return self.encode_channel_set([channel_data], lora_config_data, add_mode)
 
     def encode_nodeinfo(self, node_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -1133,12 +1032,12 @@ def encode_channels():
         
         result = encoder.encode_channel_set(channels_data, lora_config, add_mode)
     elif 'channel' in data:
-        # Single channel - encode as single Channel (legacy support)
+        # Single channel - encoded as a one-entry ChannelSet
         channel_data = data['channel']
         if not channel_data:
             return jsonify({'success': False, 'error': 'No channel data provided'}), 400
-        
-        result = encoder.encode_single_channel(channel_data, add_mode)
+
+        result = encoder.encode_single_channel(channel_data, lora_config, add_mode)
     else:
         return jsonify({
             'success': False, 
