@@ -6,13 +6,14 @@
 # Activate virtual environment
 source .venv/bin/activate
 
-# Set library path for zbar (needed by pyzbar)
-export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
+# macOS only: help pyzbar find Homebrew's zbar. Ignored elsewhere.
+if [ -d /opt/homebrew/lib ]; then
+    export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
+fi
 
 # Run the Flask application
 echo "🚀 Starting Murltools Flask Application..."
-echo "📡 Server will be available at: http://localhost:5002"
-echo "🔧 Copy JSON button fix has been applied"
+echo "📡 Server will be available at: http://localhost:5001"
 echo ""
 
 python app.py
