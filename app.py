@@ -547,6 +547,11 @@ class MeshtasticEncoder:
             
             # Generate QR code
             qr_code_data = self._generate_qr_code(url, embed, scale)
+            if not qr_code_data.get('success'):
+                return {
+                    'success': False,
+                    'error': qr_code_data.get('error', 'Failed to generate QR code')
+                }
             
             # Also decode the generated URL to provide config data in same format as decoder
             decoder_instance = MeshtasticDecoder()
@@ -711,6 +716,11 @@ class MeshtasticEncoder:
             url = f"https://meshtastic.org/v/#{encoded_data}"
 
             qr_code_data = self._generate_qr_code(url, embed, scale)
+            if not qr_code_data.get('success'):
+                return {
+                    'success': False,
+                    'error': qr_code_data.get('error', 'Failed to generate QR code')
+                }
             decoder_instance = MeshtasticDecoder()
             decoded_result = decoder_instance.decode_channel_url(url)
 
