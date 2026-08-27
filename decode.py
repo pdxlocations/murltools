@@ -15,9 +15,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python decode.py https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE
-  python decode.py --pretty https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE
-  python decode.py --summary https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE
+  python decode.py https://meshtastic.org/e/#Cg0SAQEaBFRlc3Q6AgggEgQIATgB
+  python decode.py --pretty https://meshtastic.org/e/#Cg0SAQEaBFRlc3Q6AgggEgQIATgB
+  python decode.py --summary https://meshtastic.org/e/#Cg0SAQEaBFRlc3Q6AgggEgQIATgB
         """
     )
     
@@ -89,6 +89,13 @@ def display_summary(result):
             _print_dict_summary(config, indent="  ")
         else:
             print(f"  {config}")
+    elif 'SharedContact' in result:
+        print("📇 Shared Contact:")
+        contact = result['SharedContact']
+        if isinstance(contact, dict):
+            _print_dict_summary(contact, indent="  ")
+        else:
+            print(f"  {contact}")
     elif 'Node' in result:
         print("📱 Node Information:")
         node = result['Node']

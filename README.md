@@ -7,19 +7,21 @@ A comprehensive Python Flask application for encoding, decoding, and managing Me
 ### 🔧 **Channel Configuration Creator**
 - **Visual Form Interface**: Create multi-channel configurations with intuitive web forms
 - **Add or Replace Mode**: Generate `add` URLs (`?add=true`) or `replace` URLs
-- **LoRa Settings Control**: Include LoRa settings when needed; `replace` mode requires LoRa config
+- **LoRa Settings Control**: `replace` requires LoRa config; `add` never carries it
 - **LoRa Settings**: Configure bandwidth, spread factor, coding rate, and regional settings
-- **Position Precision**: Set location sharing precision (1-32 bits) for privacy control
-- **PSK Management**: Support for both hex and base64 pre-shared keys
+- **Position Precision**: Off, approximate (10-19 bits), or precise (32 bits)
+- **PSK Management**: Hex or base64 keys, a Default Key tick box, or empty for unencrypted
 - **Preset & Manual Modes**: Choose from standard LoRa presets or configure manually
 
 ### 📱 **QR Code Generation**
 - **Instant QR Codes**: Generate scannable QR codes for easy device configuration
 - **Mobile-Friendly**: Perfect for configuring devices in the field
 - **High-Quality Output**: PNG format with error correction
+- **QR Centre**: optionally reserve the middle of the code for an uploaded image or a
+  blank square. Off by default
 
 ### 🔍 **URL Decoding & Analysis**
-- **Universal Decoder**: Decode both ChannelSet and single Channel protobuf messages
+- **Universal Decoder**: Decode channel (`/e/`) and shared-contact (`/v/`) URLs
 - **Multi-Format Support**: Handle various Meshtastic URL formats and QR codes
 - **Detailed Analysis**: View channel settings, LoRa parameters, and security information
 - **Load Settings**: Import decoded configurations back into the creator for editing
@@ -86,17 +88,17 @@ The `decode.py` script provides command-line access to the decoder:
 
 **Basic usage:**
 ```bash
-python decode.py "https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE"
+python decode.py "https://meshtastic.org/e/#Cg0SAQEaBFRlc3Q6AgggEgQIATgB"
 ```
 
 **Pretty-printed JSON output:**
 ```bash
-python decode.py --pretty "https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE"
+python decode.py --pretty "https://meshtastic.org/e/#Cg0SAQEaBFRlc3Q6AgggEgQIATgB"
 ```
 
 **Human-readable summary:**
 ```bash
-python decode.py --summary "https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE"
+python decode.py --summary "https://meshtastic.org/e/#Cg0SAQEaBFRlc3Q6AgggEgQIATgB"
 ```
 
 **View help:**
@@ -114,26 +116,29 @@ python decode.py --help
 - **Base64url Encoded Data**: Direct protobuf data input
 
 ### Protobuf Message Types
-- **ChannelSet**: Multi-channel configurations with LoRa settings
-- **Single Channel**: Individual channel configurations
-- **NodeInfo**: Node information and status
-- **User**: User profile data
-- **Position**: Location and GPS data
-- **MyNodeInfo**: Local node configuration
+- **ChannelSet** (`/e/` URLs): channel configurations with LoRa settings. A single channel is
+  encoded as a one-entry ChannelSet, which is what clients expect
+- **SharedContact** (`/v/` URLs): a shared contact — node number, user, and the ignore /
+  key-verified import flags
+- **NodeInfo**, **User**, **Position**, **MyNodeInfo**: attempted as decode fallbacks only; no
+  Meshtastic client emits these as URLs
 
 ## Configuration Options
 
 ### Channel Settings
-- **Channel Names**: Up to 11 characters per channel
-- **Pre-Shared Keys (PSK)**: Hex (0x...) or Base64 format
+- **Channel Names**: Up to 11 bytes per channel, enforced by the API as well as the form
+- **Pre-Shared Keys (PSK)**: Hex (0x...) or Base64 format. Leave empty for an unencrypted
+  channel, or tick **Default Key** for the standard `AQ==` key every stock node ships with
 - **Channel Roles**: Primary, Secondary, or Disabled
-- **Position Precision**: 1-32 bits (privacy control)
-- **Module Settings**: Position precision and other module configs
+- **Position Precision**: 0 (off), 10-19 (approximate), or 32 (precise) — the only values the official clients produce, and the only ones the API accepts
+- **Module Settings**: Position precision and per-channel mute
 
 ### LoRa Configuration
-- **Modem Presets**: LONG_FAST, LONG_SLOW, VERY_LONG_SLOW, etc.
+- **Modem Presets**: read from the bundled protobuf, so the list tracks the `meshtastic`
+  package rather than a hardcoded subset. An unknown preset is an error, not a silent LongFast
 - **Manual Settings**: Custom bandwidth, spread factor, coding rate
-- **Regional Settings**: US, EU_433, EU_868, CN, JP, ANZ, etc.
+- **Regional Settings**: likewise read from the protobuf; an unknown region is an error, not a
+  silent US
 - **Power Management**: TX power, TX enable/disable, RX boost
 - **Advanced Options**: Frequency offset, hop limit, duty cycle override
 
@@ -148,14 +153,17 @@ The web interface provides a visual representation with:
 
 ### Command Line Summary
 ```
-✅ Successfully decoded Meshtastic channel URL
-Type: SingleChannel
-URL: https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE
+✅ Successfully decoded Meshtastic URL
+URL: https://meshtastic.org/e/#Cg0SAQEaBFRlc3Q6AgggEgQIATgB
 
-📡 Channel 0 (PRIMARY)
-  Name: Default
-  PSK: 01234567890abcdef...
-  Modem Config: BW125CR45SF128
+📡 Configuration Data:
+  lora_config:
+    use_preset: True
+    region: US
+  channels: [1 items]
+    [0]:
+      psk: AQ==
+      name: Test
 ```
 
 ## API Endpoints
@@ -164,7 +172,10 @@ When running as a Flask app, the following endpoints are available:
 
 - `GET /` - Web interface
 - `POST /decode` - JSON API for decoding URLs
-- `POST /encode` - JSON API for encoding configurations
+- `POST /encode` - JSON API for encoding channel configurations
+- `POST /encode_nodeinfo` - JSON API for encoding a shared contact (`/v/` URL)
+- `GET /lora_enums` - Modem preset and region names from the bundled protobuf
+- `GET /nodeinfo_enums` - Hardware model and role names from the bundled protobuf
 - `POST /upload` - Image upload for QR code decoding
 
 ### API Usage Examples
@@ -173,7 +184,7 @@ When running as a Flask app, the following endpoints are available:
 ```bash
 curl -X POST http://localhost:5002/decode \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://meshtastic.org/e/#CgMSAQoLCgdEZWZhdWx0EAE"}'
+  -d '{"url": "https://meshtastic.org/e/#Cg0SAQEaBFRlc3Q6AgggEgQIATgB"}'
 ```
 
 #### Encode Configuration
@@ -197,12 +208,39 @@ curl -X POST http://localhost:5002/encode \
   }'
 ```
 
+#### QR Centre
+
+Both encode endpoints accept an optional `qr_embed` object:
+
+```json
+{ "mode": "blank", "ratio": 0.22 }
+{ "mode": "image", "ratio": 0.22, "image": "data:image/png;base64,..." }
+```
+
+- `mode`: `none` (default), `blank` for a reserved white square, or `image`
+- `ratio`: 0.10–0.30 of the code width; the default is 0.22
+- `image`: a data URL or bare base64, up to 2 MB
+
+A separate top-level `qr_scale` of `1` (default), `2` or `4` multiplies the output resolution.
+That helps printing and downloading, but it does **not** make the code easier to scan on
+screen: scanning depends on how large the code is *displayed*, not on how many pixels each
+module has. Measured on a 77-module code, decoding needs roughly 3 px per module — about
+250 px across for that code, regardless of whether the PNG is 850 px or 3400 px wide.
+
+Reserving the centre forces error correction **H**, which the `qrcode` library requires and
+which makes the code noticeably denser — roughly 45% more modules per side. The response
+reports `error_correction` and `modules` so this is visible. Scan-test any code you intend to
+print, especially at small sizes.
+
 `channel_action` values:
 - `replace` (default): requires `lora_config`
-- `add`: `lora_config` optional
+- `add`: never carries `lora_config`; any supplied is dropped, matching the official clients
 
 When `channel_action` is `add`, generated URLs use:
 - `https://meshtastic.org/e/?add=true#...`
+
+Decoding reports `channel_action` too, from either the query string or the older
+`#<data>?add=true` form, so an add URL round-trips as an add URL.
 
 ## Error Handling
 
@@ -263,11 +301,27 @@ This makes it easy to:
 - Legacy `Config.settings` is still accepted when loading older data
 
 ### 🎯 Position Privacy Control
-- **32-bit precision**: ~0.5 cm accuracy (maximum)
-- **24-bit precision**: ~1.2 m accuracy (high)
-- **16-bit precision**: ~305 m accuracy (medium)
-- **8-bit precision**: ~78 km accuracy (low privacy impact)
-- **Lower bits**: Increasingly private but less precise
+
+`position_precision` is not a free 1-32 range. The official clients only ever emit:
+
+- **0** — position sharing off
+- **10-19** — approximate, roughly 19 km down to 37 m; 13 is the default
+- **32** — precise, full resolution
+
+Anything else is rejected.
+
+**On a public-key channel the firmware caps this at 15 bits.** A PSK of one byte or less —
+the default key, any single-byte alias, or no key at all — is publicly decryptable, and
+`getPositionPrecisionForChannel()` clamps precision to `MAX_POSITION_PRECISION_PUBLIC_KEY`
+(15, roughly a 700 m cell) before transmitting. So on a default-key channel the effective
+range is **0 or 10-15**: setting 16-19 or 32 is carried in the URL but sent as 15.
+
+Related firmware behaviour worth knowing when reading a decoded URL:
+
+- Position sharing is opt-in — a stock channel ships with `position_precision = 0`
+- A channel with no `module_settings` at all is treated as 0, not as precise
+- Disabled channels and event channels always report 0
+- MQTT map reporting accepts only 12-15
 
 ## Security Considerations
 

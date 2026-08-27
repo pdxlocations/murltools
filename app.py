@@ -7,11 +7,12 @@ A Flask web application that decodes Meshtastic channel URLs and their encoded p
 import base64
 import json
 import io
+import re
 from urllib.parse import urlparse, parse_qs
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 from flask import Flask, render_template, request, jsonify
-from meshtastic.protobuf import channel_pb2, apponly_pb2, mesh_pb2, config_pb2
+from meshtastic.protobuf import channel_pb2, apponly_pb2, mesh_pb2, config_pb2, admin_pb2
 from google.protobuf.message import DecodeError
 from google.protobuf.json_format import MessageToDict
 from PIL import Image
@@ -19,11 +20,32 @@ from pyzbar import pyzbar
 import cv2
 import numpy as np
 import qrcode
-from qrcode.constants import ERROR_CORRECT_L
+from qrcode.constants import ERROR_CORRECT_L, ERROR_CORRECT_H
+from qrcode.image.styledpil import StyledPilImage
 
 from io import BytesIO
 
 app = Flask(__name__)
+
+# ChannelSettings.name is capped at 12 bytes including the null terminator
+MAX_CHANNEL_NAME_BYTES = 11
+
+# Position precision the official clients actually produce: disabled, the 10-19
+# approximate range, or 32 for precise. Nothing else is reachable in their UI.
+POSITION_PRECISION_DISABLED = 0
+POSITION_PRECISION_PRECISE = 32
+ALLOWED_POSITION_PRECISION = {POSITION_PRECISION_DISABLED, POSITION_PRECISION_PRECISE} | set(range(10, 20))
+
+# Centre-embed limits: above ~0.30 the code stops scanning even at error correction H
+MIN_EMBED_RATIO = 0.10
+MAX_EMBED_RATIO = 0.30
+DEFAULT_EMBED_RATIO = 0.22
+MAX_EMBED_IMAGE_BYTES = 2 * 1024 * 1024
+
+# Output resolution multiplier. Helps print and download quality; scanning at a given
+# displayed size depends on module count, not on how many pixels each module gets.
+QR_BOX_SIZE = 10
+ALLOWED_QR_SCALES = {1, 2, 4}
 
 class MeshtasticDecoder:
     """Handles decoding of Meshtastic channel URLs and protobuf data"""
@@ -63,7 +85,9 @@ class MeshtasticDecoder:
                     encoded_data = query_params['c'][0]
                 else:
                     raise ValueError("No encoded channel data found in URL")
-            
+
+            encoded_data, add_mode = self._split_add_flag(encoded_data, parsed_url.query)
+
             # Decode the base64url encoded data
             decoded_data = self._base64url_decode(encoded_data)
             
@@ -79,17 +103,17 @@ class MeshtasticDecoder:
                 result = self._try_node_decoders(decoded_data, url, decode_attempts)
                 if result:
                     return result
-                    
+
                 # Then try channel types as fallback
-                result = self._try_channel_decoders(decoded_data, url, decode_attempts)
+                result = self._try_channel_decoders(decoded_data, url, decode_attempts, add_mode)
                 if result:
                     return result
             else:
                 # For channel URLs or unknown, try channel types first
-                result = self._try_channel_decoders(decoded_data, url, decode_attempts)
+                result = self._try_channel_decoders(decoded_data, url, decode_attempts, add_mode)
                 if result:
                     return result
-                    
+
                 # Then try node types as fallback
                 result = self._try_node_decoders(decoded_data, url, decode_attempts)
                 if result:
@@ -129,6 +153,22 @@ class MeshtasticDecoder:
                 'url': url
             }
     
+    def _split_add_flag(self, encoded_data: str, query: str) -> Tuple[str, bool]:
+        """Separate the payload from the 'add' flag, which newer clients put in the
+        query string (?add=true#data) and older ones appended to the fragment."""
+        add_mode = self._is_add_true(parse_qs(query))
+
+        if '?' in encoded_data:
+            encoded_data, _, fragment_query = encoded_data.partition('?')
+            add_mode = add_mode or self._is_add_true(parse_qs(fragment_query))
+
+        return encoded_data, add_mode
+
+    @staticmethod
+    def _is_add_true(query_params: Dict[str, List[str]]) -> bool:
+        """Check whether an 'add=true' flag is present in parsed query parameters."""
+        return any(value.strip().lower() == 'true' for value in query_params.get('add', []))
+
     def _base64url_decode(self, data: str) -> bytes:
         """Decode base64url encoded string"""
         # Add padding if necessary
@@ -150,7 +190,21 @@ class MeshtasticDecoder:
     
     def _try_node_decoders(self, decoded_data: bytes, url: str, decode_attempts: list) -> Optional[Dict[str, Any]]:
         """Try node-related protobuf message types"""
-        
+
+        # Try SharedContact first: this is what /v/ contact URLs actually carry.
+        try:
+            contact = admin_pb2.SharedContact()
+            contact.ParseFromString(decoded_data)
+            contact_dict = MessageToDict(contact, preserving_proto_field_name=True)
+            if self._validate_shared_contact_data(contact_dict):
+                return {
+                    'success': True,
+                    'url': url,
+                    'SharedContact': contact_dict
+                }
+        except Exception as e:
+            decode_attempts.append(f'SharedContact failed: {str(e)}')
+
         # Try NodeInfo
         try:
             node = mesh_pb2.NodeInfo()
@@ -211,25 +265,31 @@ class MeshtasticDecoder:
         
         return None
     
-    def _try_channel_decoders(self, decoded_data: bytes, url: str, decode_attempts: list) -> Optional[Dict[str, Any]]:
+    def _try_channel_decoders(self, decoded_data: bytes, url: str, decode_attempts: list, add_mode: bool = False) -> Optional[Dict[str, Any]]:
         """Try channel-related protobuf message types"""
-        
+
+        channel_action = 'add' if add_mode else 'replace'
+
         # Try to decode as ChannelSet first
         try:
             channel_set = apponly_pb2.ChannelSet()
             channel_set.ParseFromString(decoded_data)
             config_dict = MessageToDict(channel_set, preserving_proto_field_name=True)
             config_dict = self._normalize_config_dict(config_dict)
+            # Add URLs never apply LoRa settings, so drop any the sender included.
+            if add_mode:
+                config_dict.pop('lora_config', None)
             # Validate that this looks like real channel data
             if self._validate_channel_set_data(config_dict):
                 return {
                     'success': True,
                     'url': url,
+                    'channel_action': channel_action,
                     'Config': config_dict
                 }
         except Exception as e:
             decode_attempts.append(f'ChannelSet failed: {str(e)}')
-        
+
         # Try to decode as single Channel
         try:
             channel = channel_pb2.Channel()
@@ -239,6 +299,7 @@ class MeshtasticDecoder:
                 return {
                     'success': True,
                     'url': url,
+                    'channel_action': channel_action,
                     'Config': config_dict
                 }
         except Exception as e:
@@ -246,6 +307,11 @@ class MeshtasticDecoder:
         
         return None
     
+    def _validate_shared_contact_data(self, data: Dict[str, Any]) -> bool:
+        """Validate that decoded data looks like a real SharedContact"""
+        # A contact is only meaningful with an identity attached
+        return bool(data.get('node_num') and data.get('user'))
+
     def _validate_node_data(self, data: Dict[str, Any]) -> bool:
         """Validate that decoded data looks like real NodeInfo"""
         # NodeInfo should have node number or user info
@@ -331,18 +397,25 @@ class MeshtasticEncoder:
         except (TypeError, ValueError):
             return False
 
-    def encode_channel_set(self, channels_data: List[Dict[str, Any]], lora_config_data: Optional[Dict[str, Any]] = None, add_mode: bool = False) -> Dict[str, Any]:
+    def encode_channel_set(self, channels_data: List[Dict[str, Any]], lora_config_data: Optional[Dict[str, Any]] = None, add_mode: bool = False, embed: Optional[Dict[str, Any]] = None, scale: int = 1) -> Dict[str, Any]:
         """
         Encode multiple channels into a ChannelSet and create Meshtastic URL
         
         Args:
             channels_data: List of channel configuration dictionaries
             lora_config_data: Optional LoRa configuration dictionary
-            
+            add_mode: Build an "add" URL, which never carries LoRa settings
+            embed: Optional centre-embed options for the QR code
+
         Returns:
             Dictionary containing URL, QR code data, and success status
         """
         try:
+            # Add URLs append channels to an existing config, so they must not
+            # carry LoRa settings; the importing client discards them anyway.
+            if add_mode:
+                lora_config_data = None
+
             # Create ChannelSet protobuf
             channel_set = apponly_pb2.ChannelSet()
             
@@ -363,8 +436,15 @@ class MeshtasticEncoder:
                 settings = channel_pb2.ChannelSettings()
                 
                 if channel_data.get('name'):
-                    settings.name = channel_data['name']
-                
+                    name = str(channel_data['name'])
+                    # channel.proto allows 12 bytes including the null terminator
+                    if len(name.encode('utf-8')) > MAX_CHANNEL_NAME_BYTES:
+                        raise ValueError(
+                            f"Channel name '{name}' exceeds {MAX_CHANNEL_NAME_BYTES} bytes"
+                        )
+                    settings.name = name
+
+
                 if channel_data.get('psk'):
                     # Convert PSK from hex string or base64 to bytes
                     psk_str = channel_data['psk']
@@ -391,7 +471,13 @@ class MeshtasticEncoder:
                     ms = channel_data['module_settings']
 
                     if 'position_precision' in ms and ms['position_precision'] is not None:
-                        module_settings.position_precision = int(ms['position_precision'])
+                        precision = int(ms['position_precision'])
+                        if precision not in ALLOWED_POSITION_PRECISION:
+                            raise ValueError(
+                                f'Position precision {precision} is not one of '
+                                f'{sorted(ALLOWED_POSITION_PRECISION)}'
+                            )
+                        module_settings.position_precision = precision
                     else:
                         # Default: position enabled with full precision
                         module_settings.position_precision = 32
@@ -419,27 +505,8 @@ class MeshtasticEncoder:
                 if 'use_preset' in lora_config_data:
                     lora_config.use_preset = bool(lora_config_data['use_preset'])
                 if 'modem_preset' in lora_config_data:
-                    # Map preset names to integer values (updated for new values)
-                    preset_map = {
-                        'LONG_FAST': 0,       # LONG_FAST
-                        'LONG_SLOW': 1,       # LONG_SLOW  
-                        'VERY_LONG_SLOW': 2,  # VERY_LONG_SLOW
-                        'MEDIUM_SLOW': 3,     # MEDIUM_SLOW
-                        'MEDIUM_FAST': 4,     # MEDIUM_FAST
-                        'SHORT_SLOW': 5,      # SHORT_SLOW
-                        'SHORT_FAST': 6,      # SHORT_FAST
-                        'LONG_MODERATE': 7,   # LONG_MODERATE
-                        'SHORT_TURBO': 8,     # SHORT_TURBO
-                        # Legacy support
-                        'long_fast': 0,
-                        'long_slow': 1,
-                        'very_long_slow': 2,
-                        'medium_slow': 3,
-                        'medium_fast': 4,
-                        'short_slow': 5,
-                        'short_fast': 6
-                    }
-                    lora_config.modem_preset = preset_map.get(lora_config_data['modem_preset'], 0)
+                    if not self._set_proto_enum(lora_config, 'modem_preset', lora_config_data['modem_preset']):
+                        raise ValueError(f"Unknown modem preset: {lora_config_data['modem_preset']}")
                 if 'bandwidth' in lora_config_data:
                     # Use bandwidth value as-is (no unit conversion)
                     lora_config.bandwidth = int(lora_config_data['bandwidth'])
@@ -464,25 +531,8 @@ class MeshtasticEncoder:
                 if 'override_frequency' in lora_config_data:
                     lora_config.override_frequency = float(lora_config_data['override_frequency'])
                 if 'region' in lora_config_data:
-                    # Map region string to enum value
-                    region_map = {
-                        'US': 1,
-                        'EU_433': 2,
-                        'EU_868': 3,
-                        'CN': 4,
-                        'JP': 5,
-                        'ANZ': 6,
-                        'KR': 7,
-                        'TW': 8,
-                        'RU': 9,
-                        'IN': 10,
-                        'NZ_865': 11,
-                        'TH': 12,
-                        'LORA_24': 13,
-                        'UA_433': 14,
-                        'UA_868': 15
-                    }
-                    lora_config.region = region_map.get(lora_config_data['region'], 1)  # Default to US
+                    if not self._set_proto_enum(lora_config, 'region', lora_config_data['region']):
+                        raise ValueError(f"Unknown region: {lora_config_data['region']}")
                     
                 channel_set.lora_config.CopyFrom(lora_config)
             
@@ -496,7 +546,7 @@ class MeshtasticEncoder:
             url = self._build_channel_url(encoded_data, add_mode)
             
             # Generate QR code
-            qr_code_data = self._generate_qr_code(url)
+            qr_code_data = self._generate_qr_code(url, embed, scale)
             
             # Also decode the generated URL to provide config data in same format as decoder
             decoder_instance = MeshtasticDecoder()
@@ -530,129 +580,29 @@ class MeshtasticEncoder:
                 'error': f'Failed to encode channel set: {str(e)}'
             }
     
-    def encode_single_channel(self, channel_data: Dict[str, Any], add_mode: bool = False) -> Dict[str, Any]:
+    def encode_single_channel(self, channel_data: Dict[str, Any], lora_config_data: Optional[Dict[str, Any]] = None, add_mode: bool = False, embed: Optional[Dict[str, Any]] = None, scale: int = 1) -> Dict[str, Any]:
         """
-        Encode a single channel into a Channel protobuf and create Meshtastic URL
-        
+        Encode a single channel into a Meshtastic URL
+
         Args:
             channel_data: Channel configuration dictionary
-            
+            lora_config_data: Optional LoRa configuration dictionary
+            add_mode: Build an "add" URL, which never carries LoRa settings
+
         Returns:
             Dictionary containing URL, QR code data, and success status
         """
-        try:
-            # Create Channel protobuf
-            channel = channel_pb2.Channel()
-            channel.index = channel_data.get('index', 0)
-            
-            # Set channel role
-            role_map = {
-                'primary': channel_pb2.Channel.Role.PRIMARY,
-                'secondary': channel_pb2.Channel.Role.SECONDARY,
-                'disabled': channel_pb2.Channel.Role.DISABLED
-            }
-            channel.role = role_map.get(channel_data.get('role', 'secondary'), channel_pb2.Channel.Role.SECONDARY)
-            
-            # Create channel settings
-            settings = channel_pb2.ChannelSettings()
-            
-            if channel_data.get('name'):
-                settings.name = channel_data['name']
-            
-            if channel_data.get('psk'):
-                # Convert PSK from hex string or base64 to bytes
-                psk_str = channel_data['psk']
-                try:
-                    if psk_str.startswith('0x'):
-                        settings.psk = bytes.fromhex(psk_str[2:])
-                    else:
-                        # Try as base64
-                        settings.psk = base64.b64decode(psk_str)
-                except:
-                    # If all else fails, use as UTF-8 bytes (not recommended but fallback)
-                    settings.psk = psk_str.encode('utf-8')[:32]  # Limit to 32 bytes
-            
-            # Set uplink/downlink enabled flags
-            if 'uplink_enabled' in channel_data:
-                settings.uplink_enabled = bool(channel_data['uplink_enabled'])
-            if 'downlink_enabled' in channel_data:
-                settings.downlink_enabled = bool(channel_data['downlink_enabled'])
-            
-            # Always create module settings to ensure position_precision and is_muted are explicit
-            module_settings = channel_pb2.ModuleSettings()
+        # A URL always carries a ChannelSet, never a bare Channel, so a lone
+        # channel is just a one-entry set.
+        return self.encode_channel_set([channel_data], lora_config_data, add_mode, embed, scale)
 
-            if 'module_settings' in channel_data and isinstance(channel_data['module_settings'], dict):
-                ms = channel_data['module_settings']
-
-                if 'position_precision' in ms and ms['position_precision'] is not None:
-                    module_settings.position_precision = int(ms['position_precision'])
-                else:
-                    # Default: position enabled with full precision
-                    module_settings.position_precision = 32
-
-                # Per-channel mute flag (matches meshtastic/channel.proto: ModuleSettings.is_muted)
-                for key in ('is_muted', 'muted', 'mute'):
-                    if key in ms:
-                        module_settings.is_muted = bool(ms[key])
-                        break
-            else:
-                # Default: position enabled with full precision
-                module_settings.position_precision = 32
-            
-            # Always set module settings
-            settings.module_settings.CopyFrom(module_settings)
-            
-            channel.settings.CopyFrom(settings)
-            
-            # Serialize the Channel to bytes
-            protobuf_data = channel.SerializeToString()
-            
-            # Encode as base64url
-            encoded_data = self._base64url_encode(protobuf_data)
-            
-            # Create Meshtastic URL
-            url = self._build_channel_url(encoded_data, add_mode)
-            
-            # Generate QR code
-            qr_code_data = self._generate_qr_code(url)
-            
-            # Also decode the generated URL to provide config data in same format as decoder
-            decoder_instance = MeshtasticDecoder()
-            decoded_result = decoder_instance.decode_channel_url(url)
-            
-            # Build the response with both encoding and decoding information
-            response = {
-                'success': True,
-                'url': url,
-                'qr_code': qr_code_data,
-                'encoded_size': len(protobuf_data),
-                'channel_action': 'add' if add_mode else 'replace'
-            }
-            
-            # Add decoded configuration data if decoding was successful
-            if decoded_result.get('success'):
-                if 'Config' in decoded_result:
-                    response['Config'] = decoded_result['Config']
-                else:
-                    # Handle other message types that might be returned
-                    for key in decoded_result:
-                        if key not in ['success', 'url']:
-                            response[key] = decoded_result[key]
-            
-            return response
-            
-        except Exception as e:
-            return {
-                'success': False,
-                'error': f'Failed to encode single channel: {str(e)}'
-            }
-
-    def encode_nodeinfo(self, node_data: Dict[str, Any]) -> Dict[str, Any]:
+    def encode_nodeinfo(self, node_data: Dict[str, Any], embed: Optional[Dict[str, Any]] = None, scale: int = 1) -> Dict[str, Any]:
         """
-        Encode NodeInfo into a Meshtastic node URL
+        Encode a shared contact into a Meshtastic contact URL
 
         Args:
-            node_data: NodeInfo configuration dictionary
+            node_data: Contact configuration dictionary
+            embed: Optional centre-embed options for the QR code
 
         Returns:
             Dictionary containing URL, QR code data, and success status
@@ -670,70 +620,33 @@ class MeshtasticEncoder:
                         return data[key]
                 return None
 
-            node = mesh_pb2.NodeInfo()
-            has_data = False
+            node = admin_pb2.SharedContact()
             has_required_identity = False
             node_num_value: Optional[int] = None
             user_id_value: Optional[str] = None
 
-            node_num_raw = _get_value(node_data, 'num')
+            node_num_raw = _get_value(node_data, 'num', 'node_num')
             if node_num_raw is not None:
                 node_num = node_num_raw
                 if isinstance(node_num, str):
                     node_num = int(node_num, 10)
                 node_num_value = int(node_num)
-                self._set_proto_field(node, 'num', node_num_value)
-                has_data = True
+                self._set_proto_field(node, 'node_num', node_num_value)
                 has_required_identity = True
 
-            # Optional NodeInfo fields
-            snr_value = _get_value(node_data, 'snr')
-            if snr_value is not None:
-                self._set_proto_field(node, 'snr', float(snr_value))
-                has_data = True
+            # SharedContact carries only these two flags alongside the identity
+            should_ignore_value = _get_value(node_data, 'is_ignored', 'isIgnored', 'should_ignore')
+            if should_ignore_value is not None:
+                self._set_proto_field(node, 'should_ignore', bool(should_ignore_value))
 
-            last_heard_value = _get_value(node_data, 'last_heard', 'lastHeard')
-            if last_heard_value is not None:
-                self._set_proto_field(node, 'last_heard', int(last_heard_value))
-                has_data = True
-
-            channel_value = _get_value(node_data, 'channel')
-            if channel_value is not None:
-                self._set_proto_field(node, 'channel', int(channel_value))
-                has_data = True
-
-            via_mqtt_value = _get_value(node_data, 'via_mqtt', 'viaMqtt')
-            if via_mqtt_value is not None:
-                self._set_proto_field(node, 'via_mqtt', bool(via_mqtt_value))
-                has_data = True
-
-            is_favorite_value = _get_value(node_data, 'is_favorite', 'isFavorite')
-            if is_favorite_value is not None:
-                self._set_proto_field(node, 'is_favorite', bool(is_favorite_value))
-                has_data = True
-
-            is_ignored_value = _get_value(node_data, 'is_ignored', 'isIgnored')
-            if is_ignored_value is not None:
-                self._set_proto_field(node, 'is_ignored', bool(is_ignored_value))
-                has_data = True
-
-            is_key_manually_verified_value = _get_value(
+            manually_verified_value = _get_value(
                 node_data,
                 'is_key_manually_verified',
-                'isKeyManuallyVerified'
+                'isKeyManuallyVerified',
+                'manually_verified'
             )
-            if is_key_manually_verified_value is not None:
-                self._set_proto_field(
-                    node,
-                    'is_key_manually_verified',
-                    bool(is_key_manually_verified_value)
-                )
-                has_data = True
-
-            hops_away_value = _get_value(node_data, 'hops_away', 'hopsAway')
-            if hops_away_value is not None:
-                self._set_proto_field(node, 'hops_away', int(hops_away_value))
-                has_data = True
+            if manually_verified_value is not None:
+                self._set_proto_field(node, 'manually_verified', bool(manually_verified_value))
 
             user_data = node_data.get('user')
             if isinstance(user_data, dict):
@@ -777,15 +690,7 @@ class MeshtasticEncoder:
                     self._set_proto_field(user, 'is_unmessagable', bool(is_unmessagable_value))
 
                 if user.ListFields():
-                    if 'user' in node.DESCRIPTOR.fields_by_name:
-                        node.user.CopyFrom(user)
-                        has_data = True
-
-            if not has_data:
-                return {
-                    'success': False,
-                    'error': 'Provide node number or node ID'
-                }
+                    node.user.CopyFrom(user)
 
             if not has_required_identity:
                 return {
@@ -795,18 +700,17 @@ class MeshtasticEncoder:
 
             # Auto-derive missing identity field after validation.
             if node_num_value is not None and not user_id_value:
-                if 'user' in node.DESCRIPTOR.fields_by_name:
-                    node.user.id = self._format_node_id(node_num_value)
+                node.user.id = self._format_node_id(node_num_value)
             elif node_num_value is None and user_id_value:
                 derived_num = self._parse_node_id(user_id_value)
                 if derived_num is not None:
-                    node.num = derived_num
+                    node.node_num = derived_num
 
             protobuf_data = node.SerializeToString()
             encoded_data = self._base64url_encode(protobuf_data)
             url = f"https://meshtastic.org/v/#{encoded_data}"
 
-            qr_code_data = self._generate_qr_code(url)
+            qr_code_data = self._generate_qr_code(url, embed, scale)
             decoder_instance = MeshtasticDecoder()
             decoded_result = decoder_instance.decode_channel_url(url)
 
@@ -836,37 +740,91 @@ class MeshtasticEncoder:
         encoded = base64.urlsafe_b64encode(data).decode('ascii')
         return encoded.rstrip('=')
     
-    def _generate_qr_code(self, url: str) -> Dict[str, Any]:
-        """Generate QR code image for the given URL"""
+    def _decode_embed_image(self, image_data: str) -> Image.Image:
+        """Decode a browser data URL (or bare base64) into an image to embed."""
+        payload = image_data.split(',', 1)[1] if image_data.startswith('data:') else image_data
+        raw = base64.b64decode(payload)
+        if len(raw) > MAX_EMBED_IMAGE_BYTES:
+            raise ValueError(f'Embedded image exceeds {MAX_EMBED_IMAGE_BYTES // 1024}KB')
+
+        image = Image.open(BytesIO(raw))
+        image.load()
+        return image.convert('RGBA')
+
+    def _generate_qr_code(self, url: str, embed: Optional[Dict[str, Any]] = None, scale: int = 1) -> Dict[str, Any]:
+        """
+        Generate a QR code image for the given URL
+
+        Args:
+            url: The URL to encode
+            embed: Optional {'mode': 'image'|'blank', 'image': <data URL>, 'ratio': float}
+                   reserving a square in the centre. Anything centred forces error
+                   correction H, which the qrcode library requires and which makes the
+                   code denser, so the caller opts in.
+            scale: Pixel multiplier for the output. Raises print and download quality;
+                   it does not change how well the code scans at a given displayed size,
+                   which depends on the module count instead.
+
+        Returns:
+            Dictionary containing the base64 PNG and its size
+        """
         try:
-            # Create QR code
+            mode = (embed or {}).get('mode', 'none')
+            centre_image = None
+
+            if mode == 'image':
+                centre_image = self._decode_embed_image((embed or {}).get('image') or '')
+            elif mode == 'blank':
+                # A solid white square the user can overprint or stick a label on
+                centre_image = Image.new('RGBA', (256, 256), (255, 255, 255, 255))
+
+            ratio = float((embed or {}).get('ratio', DEFAULT_EMBED_RATIO))
+            if not MIN_EMBED_RATIO <= ratio <= MAX_EMBED_RATIO:
+                raise ValueError(
+                    f'Embed ratio must be between {MIN_EMBED_RATIO} and {MAX_EMBED_RATIO}'
+                )
+
+            scale = int(scale or 1)
+            if scale not in ALLOWED_QR_SCALES:
+                raise ValueError(f'QR scale must be one of {sorted(ALLOWED_QR_SCALES)}')
+
             qr = qrcode.QRCode(
                 version=1,  # Controls the size of the QR Code
-                error_correction=ERROR_CORRECT_L,
-                box_size=10,
+                error_correction=ERROR_CORRECT_H if centre_image else ERROR_CORRECT_L,
+                box_size=QR_BOX_SIZE * scale,
                 border=4,
             )
             qr.add_data(url)
             qr.make(fit=True)
-            
+
             # Create image
-            qr_img = qr.make_image(fill_color="black", back_color="white")
-            
+            if centre_image:
+                qr_img = qr.make_image(
+                    image_factory=StyledPilImage,
+                    embedded_image=centre_image,
+                    embedded_image_ratio=ratio,
+                )
+            else:
+                qr_img = qr.make_image(fill_color="black", back_color="white")
+
             # Convert to bytes
             img_buffer = BytesIO()
             qr_img.save(img_buffer, format='PNG')
             img_buffer.seek(0)
-            
+
             # Encode as base64 for web display
             img_base64 = base64.b64encode(img_buffer.getvalue()).decode('ascii')
-            
+
             return {
                 'success': True,
                 'image_base64': img_base64,
                 'mime_type': 'image/png',
-                'size': qr_img.size
+                'size': qr_img.size,
+                'scale': scale,
+                'modules': qr.modules_count,
+                'error_correction': 'H' if centre_image else 'L'
             }
-            
+
         except Exception as e:
             return {
                 'success': False,
@@ -1015,11 +973,11 @@ class QRCodeProcessor:
     def _is_meshtastic_url(self, url: str) -> bool:
         """Check if a URL looks like a Meshtastic URL"""
         url_lower = url.lower()
-        return (
-            'meshtastic.org' in url_lower or
-            ('/e/#' in url_lower and len(url) > 30) or
-            ('/v/#' in url_lower and len(url) > 30)
-        )
+        if 'meshtastic.org' in url_lower:
+            return True
+
+        # Match /e/ and /v/ with or without the trailing slash, as clients accept both
+        return len(url) > 30 and bool(re.search(r'/[ev]/?[#?]', url_lower))
 
 # Initialize decoder, encoder, and QR processor
 decoder = MeshtasticDecoder()
@@ -1110,6 +1068,8 @@ def encode_channels():
     
     # Get LoRa config if provided
     lora_config = data.get('lora_config')
+    embed = data.get('qr_embed')
+    qr_scale = data.get('qr_scale', 1)
     channel_action = str(data.get('channel_action', 'replace')).strip().lower()
     add_mode = channel_action == 'add'
 
@@ -1127,14 +1087,14 @@ def encode_channels():
         if not channels_data:
             return jsonify({'success': False, 'error': 'No channels provided'}), 400
         
-        result = encoder.encode_channel_set(channels_data, lora_config, add_mode)
+        result = encoder.encode_channel_set(channels_data, lora_config, add_mode, embed, qr_scale)
     elif 'channel' in data:
-        # Single channel - encode as single Channel (legacy support)
+        # Single channel - encoded as a one-entry ChannelSet
         channel_data = data['channel']
         if not channel_data:
             return jsonify({'success': False, 'error': 'No channel data provided'}), 400
-        
-        result = encoder.encode_single_channel(channel_data, add_mode)
+
+        result = encoder.encode_single_channel(channel_data, lora_config, add_mode, embed, qr_scale)
     else:
         return jsonify({
             'success': False, 
@@ -1152,7 +1112,7 @@ def encode_nodeinfo():
         return jsonify({'success': False, 'error': 'No node data provided'}), 400
 
     node_data = data['node']
-    result = encoder.encode_nodeinfo(node_data)
+    result = encoder.encode_nodeinfo(node_data, data.get('qr_embed'), data.get('qr_scale', 1))
     return jsonify(result)
 
 @app.route('/nodeinfo_enums', methods=['GET'])
@@ -1176,6 +1136,21 @@ def nodeinfo_enums():
             'hw_model': hw_model_values,
             'role': role_values
         })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/lora_enums', methods=['GET'])
+def lora_enums():
+    """Return enum names for LoRa config fields"""
+    try:
+        lora_descriptor = config_pb2.Config.LoRaConfig.DESCRIPTOR
+        values = {}
+
+        for field_name in ('modem_preset', 'region'):
+            field = lora_descriptor.fields_by_name.get(field_name)
+            values[field_name] = [value.name for value in field.enum_type.values] if field and field.enum_type else []
+
+        return jsonify({'success': True, **values})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

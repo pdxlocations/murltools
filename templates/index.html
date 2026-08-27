@@ -563,7 +563,7 @@
         <div id="encode-tab" class="tab-content">
             <div class="subtab-nav">
                 <button class="subtab-btn active" data-subtab="encode-channels-tab">📡 Channel &amp; Modem URL</button>
-                <button class="subtab-btn" data-subtab="encode-nodeinfo-tab">🛰️ NodeInfo URL</button>
+                <button class="subtab-btn" data-subtab="encode-nodeinfo-tab">🛰️ Contact URL</button>
             </div>
 
             <div id="encode-channels-tab" class="subtab-content active">
@@ -603,7 +603,7 @@
                     <label>
                         <input type="checkbox" id="include-lora-settings" /> Include LoRa Settings
                     </label>
-                    <small style="color: #7f8c8d; font-size: 12px;">Enable to include modem/radio settings in the generated URL.</small>
+                    <small style="color: #7f8c8d; font-size: 12px;">Set by Channel Action: Replace always includes modem/radio settings, Add never does.</small>
                 </div>
 
                 <div id="lora-settings-container" style="display: none;">
@@ -805,6 +805,38 @@
                     </div>
                 </div>
                 
+                <div class="input-group">
+                    <h4 style="margin: 20px 0 10px 0; color: #34495e;">QR Centre</h4>
+                    <label for="channel-qr-embed">Centre of QR code:</label>
+                    <select id="channel-qr-embed">
+                        <option value="none" selected>Nothing (smallest code)</option>
+                        <option value="blank">Blank square</option>
+                        <option value="image">Image...</option>
+                    </select>
+                    <small style="color: #7f8c8d; font-size: 12px;">Reserving the centre raises error correction to H, making the code denser. Test any code you intend to print.</small>
+                </div>
+
+                <div id="channel-qr-embed-options" class="input-group" style="display: none; margin-left: 20px;">
+                    <div id="channel-qr-image-row" style="display: none;">
+                        <label for="channel-qr-image">Image file:</label>
+                        <input type="file" id="channel-qr-image" accept="image/*" />
+                        <small style="color: #7f8c8d; font-size: 12px;">PNG with transparency works best. Max 2 MB.</small>
+                    </div>
+                    <label for="channel-qr-ratio" style="margin-top: 10px; display: block;">Size:</label>
+                    <input type="range" id="channel-qr-ratio" min="10" max="30" value="22" style="width: 100%;" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Covers <span id="channel-qr-ratio-display">22</span>% of the code width. Above 30% it stops scanning.</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="channel-qr-scale">Output resolution:</label>
+                    <select id="channel-qr-scale">
+                        <option value="1" selected>1x</option>
+                        <option value="2">2x</option>
+                        <option value="4">4x</option>
+                    </select>
+                    <small style="color: #7f8c8d; font-size: 12px;">More pixels per module, for printing or downloading. It does not change how well the code scans on screen &mdash; displayed size does that.</small>
+                </div>
+
                 <div class="button-group">
                     <button id="encode-btn">🚀 Generate URL &amp; QR Code</button>
                     <button id="clear-encode-btn">🗑️ Clear Form</button>
@@ -821,8 +853,8 @@
 
             <div id="encode-nodeinfo-tab" class="subtab-content">
                 <div class="input-group">
-                    <h3>🛰️ NodeInfo URL</h3>
-                    <p>Create a Meshtastic node info URL for sharing basic node identity.</p>
+                    <h3>🛰️ Contact URL</h3>
+                    <p>Create a Meshtastic contact URL for sharing a node identity.</p>
                 </div>
 
                 <div class="input-group">
@@ -843,34 +875,8 @@
                 </div>
 
                 <div class="input-group">
-                    <h4 style="margin: 0 0 10px 0; color: #34495e;">Node Status</h4>
-                </div>
-
-                <div class="input-group">
-                    <label for="node-snr">SNR:</label>
-                    <input type="number" id="node-snr" step="0.1" placeholder="12.5" />
-                </div>
-
-                <div class="input-group">
-                    <label for="node-last-heard">Last Heard (epoch):</label>
-                    <input type="number" id="node-last-heard" step="1" placeholder="1770103625" />
-                </div>
-
-                <div class="input-group">
-                    <label for="node-channel">Channel:</label>
-                    <input type="number" id="node-channel" step="1" min="0" placeholder="0" />
-                </div>
-
-                <div class="input-group">
-                    <label>
-                        <input type="checkbox" id="node-via-mqtt" /> Via MQTT
-                    </label>
-                </div>
-
-                <div class="input-group">
-                    <label>
-                        <input type="checkbox" id="node-is-favorite" /> Favorite
-                    </label>
+                    <h4 style="margin: 0 0 10px 0; color: #34495e;">Import Flags</h4>
+                    <small style="color: #7f8c8d; font-size: 12px;">Applied by the importing client. Contact URLs carry no live status such as SNR or last heard.</small>
                 </div>
 
                 <div class="input-group">
@@ -883,11 +889,6 @@
                     <label>
                         <input type="checkbox" id="node-is-key-manually-verified" /> Key Manually Verified
                     </label>
-                </div>
-
-                <div class="input-group">
-                    <label for="node-hops-away">Hops Away:</label>
-                    <input type="number" id="node-hops-away" step="1" min="0" placeholder="1" />
                 </div>
 
                 <div class="input-group">
@@ -946,17 +947,49 @@
                     <small style="color: #7f8c8d; font-size: 12px;">Indicates the node cannot be messaged.</small>
                 </div>
 
+                <div class="input-group">
+                    <h4 style="margin: 20px 0 10px 0; color: #34495e;">QR Centre</h4>
+                    <label for="contact-qr-embed">Centre of QR code:</label>
+                    <select id="contact-qr-embed">
+                        <option value="none" selected>Nothing (smallest code)</option>
+                        <option value="blank">Blank square</option>
+                        <option value="image">Image...</option>
+                    </select>
+                    <small style="color: #7f8c8d; font-size: 12px;">Reserving the centre raises error correction to H, making the code denser. Test any code you intend to print.</small>
+                </div>
+
+                <div id="contact-qr-embed-options" class="input-group" style="display: none; margin-left: 20px;">
+                    <div id="contact-qr-image-row" style="display: none;">
+                        <label for="contact-qr-image">Image file:</label>
+                        <input type="file" id="contact-qr-image" accept="image/*" />
+                        <small style="color: #7f8c8d; font-size: 12px;">PNG with transparency works best. Max 2 MB.</small>
+                    </div>
+                    <label for="contact-qr-ratio" style="margin-top: 10px; display: block;">Size:</label>
+                    <input type="range" id="contact-qr-ratio" min="10" max="30" value="22" style="width: 100%;" />
+                    <small style="color: #7f8c8d; font-size: 12px;">Covers <span id="contact-qr-ratio-display">22</span>% of the code width. Above 30% it stops scanning.</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="contact-qr-scale">Output resolution:</label>
+                    <select id="contact-qr-scale">
+                        <option value="1" selected>1x</option>
+                        <option value="2">2x</option>
+                        <option value="4">4x</option>
+                    </select>
+                    <small style="color: #7f8c8d; font-size: 12px;">More pixels per module, for printing or downloading. It does not change how well the code scans on screen &mdash; displayed size does that.</small>
+                </div>
+
                 <div class="button-group">
-                    <button id="encode-nodeinfo-btn">🚀 Generate NodeInfo URL &amp; QR Code</button>
+                    <button id="encode-nodeinfo-btn">🚀 Generate Contact URL &amp; QR Code</button>
                     <button id="clear-nodeinfo-btn">🗑️ Clear Form</button>
                 </div>
 
                 <div class="loading" id="nodeinfo-loading" style="display: none;">
-                    <p>🔄 Generating NodeInfo URL and QR code...</p>
+                    <p>🔄 Generating contact URL and QR code...</p>
                 </div>
 
                 <div class="result" id="nodeinfo-result" style="display: none;">
-                    <!-- NodeInfo encoding results will be populated here -->
+                    <!-- Contact encoding results will be populated here -->
                 </div>
             </div>
         </div>
@@ -1618,14 +1651,8 @@
         const encodeResult = document.getElementById('encode-result');
         const nodeNumInput = document.getElementById('node-num');
         const nodeUserIdInput = document.getElementById('node-user-id');
-        const nodeSnrInput = document.getElementById('node-snr');
-        const nodeLastHeardInput = document.getElementById('node-last-heard');
-        const nodeChannelInput = document.getElementById('node-channel');
-        const nodeViaMqttInput = document.getElementById('node-via-mqtt');
-        const nodeIsFavoriteInput = document.getElementById('node-is-favorite');
         const nodeIsIgnoredInput = document.getElementById('node-is-ignored');
         const nodeIsKeyManuallyVerifiedInput = document.getElementById('node-is-key-manually-verified');
-        const nodeHopsAwayInput = document.getElementById('node-hops-away');
         const nodeHwModelInput = document.getElementById('node-hw-model');
         const nodeLongNameInput = document.getElementById('node-long-name');
         const nodeShortNameInput = document.getElementById('node-short-name');
@@ -1652,12 +1679,10 @@
             const channelAction = channelActionSelect ? channelActionSelect.value : 'replace';
             const isReplace = channelAction === 'replace';
 
-            if (isReplace) {
-                includeLoraSettingsCheckbox.checked = true;
-                includeLoraSettingsCheckbox.disabled = true;
-            } else {
-                includeLoraSettingsCheckbox.disabled = false;
-            }
+            // Replace requires LoRa settings; Add never carries them. Either way the
+            // choice is forced, so the checkbox is locked to match the action.
+            includeLoraSettingsCheckbox.checked = isReplace;
+            includeLoraSettingsCheckbox.disabled = true;
 
             updateLoraSettingsVisibility();
             refreshChannelHeadings();
@@ -1746,6 +1771,115 @@
             }
         });
         
+        // Centre-embed controls, shared by the channel and contact forms
+        const qrEmbedImages = {};
+
+        function initQrEmbedControls(prefix) {
+            const mode = document.getElementById(`${prefix}-qr-embed`);
+            const options = document.getElementById(`${prefix}-qr-embed-options`);
+            const imageRow = document.getElementById(`${prefix}-qr-image-row`);
+            const fileInput = document.getElementById(`${prefix}-qr-image`);
+            const ratio = document.getElementById(`${prefix}-qr-ratio`);
+            const ratioDisplay = document.getElementById(`${prefix}-qr-ratio-display`);
+
+            mode.addEventListener('change', function() {
+                options.style.display = this.value === 'none' ? 'none' : 'block';
+                imageRow.style.display = this.value === 'image' ? 'block' : 'none';
+            });
+
+            ratio.addEventListener('input', function() {
+                ratioDisplay.textContent = this.value;
+            });
+
+            fileInput.addEventListener('change', function() {
+                const file = this.files && this.files[0];
+                if (!file) {
+                    delete qrEmbedImages[prefix];
+                    return;
+                }
+                if (file.size > 2 * 1024 * 1024) {
+                    alert('Image must be 2 MB or smaller.');
+                    this.value = '';
+                    delete qrEmbedImages[prefix];
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => { qrEmbedImages[prefix] = reader.result; };
+                reader.onerror = () => {
+                    alert('Could not read that image.');
+                    delete qrEmbedImages[prefix];
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function collectQrEmbed(prefix) {
+            const mode = document.getElementById(`${prefix}-qr-embed`).value;
+            if (mode === 'none') {
+                return null;
+            }
+
+            const ratio = parseInt(document.getElementById(`${prefix}-qr-ratio`).value, 10) / 100;
+            if (mode === 'blank') {
+                return { mode: 'blank', ratio: ratio };
+            }
+
+            if (!qrEmbedImages[prefix]) {
+                alert('Choose an image, or set the QR centre to Blank square or Nothing.');
+                return undefined;
+            }
+            return { mode: 'image', image: qrEmbedImages[prefix], ratio: ratio };
+        }
+
+        // Scanners need roughly 3 pixels per module, so show dense codes larger.
+        function qrDisplayWidth(qrCode) {
+            const modules = (qrCode && qrCode.modules) || 33;
+            return Math.min(420, Math.max(300, Math.round((modules + 8) * 4.5)));
+        }
+
+        function collectQrScale(prefix) {
+            return parseInt(document.getElementById(`${prefix}-qr-scale`).value, 10) || 1;
+        }
+
+        function resetQrEmbedControls(prefix) {
+            delete qrEmbedImages[prefix];
+            document.getElementById(`${prefix}-qr-embed`).value = 'none';
+            document.getElementById(`${prefix}-qr-embed-options`).style.display = 'none';
+            document.getElementById(`${prefix}-qr-image-row`).style.display = 'none';
+            document.getElementById(`${prefix}-qr-image`).value = '';
+            document.getElementById(`${prefix}-qr-ratio`).value = '22';
+            document.getElementById(`${prefix}-qr-ratio-display`).textContent = '22';
+            document.getElementById(`${prefix}-qr-scale`).value = '1';
+        }
+
+        // Single byte 0x01, which every client expands to the standard public key
+        const DEFAULT_KEY_PSK = 'AQ==';
+
+        function isDefaultKeyPsk(psk) {
+            const value = (psk || '').trim();
+            return value === DEFAULT_KEY_PSK || value.toLowerCase() === '0x01';
+        }
+
+        // The firmware treats a PSK of one byte or less as publicly decryptable and clamps
+        // position to MAX_POSITION_PRECISION_PUBLIC_KEY bits before transmitting.
+        const MAX_PRECISION_PUBLIC_KEY = 15;
+
+        function refreshPreciseLocationWarning(index) {
+            const warning = document.getElementById(`channel-${index}-precise-warning`);
+            const psk = document.getElementById(`channel-${index}-psk`);
+            const positionEnabled = document.getElementById(`channel-${index}-position-enabled`);
+            const precise = document.getElementById(`channel-${index}-precise-location`);
+            const slider = document.getElementById(`channel-${index}-precision-slider`);
+            if (!warning || !psk || !positionEnabled || !precise || !slider) {
+                return;
+            }
+
+            const publicKey = isDefaultKeyPsk(psk.value) || !psk.value.trim();
+            const precision = precise.checked ? 32 : parseInt(slider.value, 10);
+            const show = publicKey && positionEnabled.checked && precision > MAX_PRECISION_PUBLIC_KEY;
+            warning.style.display = show ? 'block' : 'none';
+        }
+
         function generateChannelForms(numChannels) {
             channelsContainer.innerHTML = '';
             
@@ -1773,8 +1907,15 @@
                     
                     <div class="input-group">
                         <label for="channel-${i}-psk">Pre-Shared Key (PSK):</label>
-                        <input type="text" id="channel-${i}-psk" placeholder="Leave empty for default key or enter hex (0x...) or base64" />
-                        <small style="color: #7f8c8d; font-size: 12px;">Format: hex (0x1234abcd...) or base64 (AQIDBAUGBwgJ...). Leave empty for default key.</small>
+                        <input type="text" id="channel-${i}-psk" placeholder="Leave empty for unencrypted channel, or enter hex (0x...) or base64" />
+                        <small style="color: #7f8c8d; font-size: 12px;">Format: hex (0x1234abcd...) or base64 (AQIDBAUGBwgJ...). Leave empty for unencrypted channel.</small>
+                    </div>
+
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="channel-${i}-default-key" /> Default Key
+                        </label>
+                        <small style="color: #7f8c8d; font-size: 12px;">The standard public key (AQ==) every stock node ships with</small>
                     </div>
                     
                     <div class="input-group">
@@ -1789,7 +1930,8 @@
                             <input type="checkbox" id="channel-${i}-precise-location" checked /> Precise Location
                         </label>
                         <small style="color: #7f8c8d; font-size: 12px;">Full precision (32 bits, ~0.5cm accuracy). Uncheck for approximate location.</small>
-                        
+                        <small id="channel-${i}-precise-warning" style="display: none; color: #c0392b; font-size: 12px;">⚠️ This channel uses a public key, so the firmware caps position at 15 bits (~700 m) on the wire. Anything higher is transmitted as 15.</small>
+
                         <div id="channel-${i}-approximate-settings" style="display: none; margin-top: 10px;">
                             <label for="channel-${i}-precision-slider">Approximate Location Precision:</label>
                             <div style="margin: 10px 0;">
@@ -1833,6 +1975,24 @@
                 
                 channelsContainer.appendChild(channelDiv);
                 
+                // Keep the default-key checkbox and the PSK field in step
+                const pskInput = document.getElementById(`channel-${i}-psk`);
+                const defaultKeyCheckbox = document.getElementById(`channel-${i}-default-key`);
+
+                defaultKeyCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        pskInput.value = DEFAULT_KEY_PSK;
+                    } else if (isDefaultKeyPsk(pskInput.value)) {
+                        pskInput.value = '';
+                    }
+                    refreshPreciseLocationWarning(i);
+                });
+
+                pskInput.addEventListener('input', function() {
+                    defaultKeyCheckbox.checked = isDefaultKeyPsk(this.value);
+                    refreshPreciseLocationWarning(i);
+                });
+
                 // Add event listeners for position controls
                 const positionEnabled = document.getElementById(`channel-${i}-position-enabled`);
                 const positionSettings = document.getElementById(`channel-${i}-position-settings`);
@@ -1844,15 +2004,18 @@
                 // Toggle position settings visibility
                 positionEnabled.addEventListener('change', function() {
                     positionSettings.style.display = this.checked ? 'block' : 'none';
+                    refreshPreciseLocationWarning(i);
                 });
                 
                 // Toggle between precise and approximate
                 preciseLocation.addEventListener('change', function() {
                     approximateSettings.style.display = this.checked ? 'none' : 'block';
+                    refreshPreciseLocationWarning(i);
                 });
                 
                 // Update precision display when slider changes
                 precisionSlider.addEventListener('input', function() {
+                    refreshPreciseLocationWarning(i);
                     const bits = parseInt(this.value);
                     const meters = Math.round(23905787.925008 * Math.pow(0.5, bits));
                     let distanceStr;
@@ -1917,8 +2080,6 @@
                     positionPrecision = parseInt(precisionSlider.value); // Approximate precision
                 }
                 
-                const clientMutedField = document.getElementById(`channel-${i}-client-muted`);
-                const clientMuted = clientMutedField ? clientMutedField.checked : false;
                 const uplinkEnabled = document.getElementById(`channel-${i}-uplink`).checked;
                 const downlinkEnabled = document.getElementById(`channel-${i}-downlink`).checked;
                 const mute = document.getElementById(`channel-${i}-mute`).checked;
@@ -1926,35 +2087,21 @@
                 const channelData = {
                     role: role,
                     module_settings: {
-                        position_precision: positionPrecision
+                        position_precision: positionPrecision,
+                        is_muted: mute
                     }
                 };
-                
-                // Add is_client_muted to module_settings if checked
-                if (clientMuted) {
-                    channelData.module_settings.is_client_muted = true;
-                }
-                
+
+
                 // Only include name if user actually entered one
                 if (name) {
                     channelData.name = name;
                 }
                 
-                if (psk) {
-                    channelData.psk = psk;
-                } else {
-                    // Fill in default PSK when empty
-                    channelData.psk = "";
-                }
+                // An empty PSK is an unencrypted channel; tick Default Key for the standard key
+                channelData.psk = psk;
 
-                // // Handle PSK - use default "AQ==" if empty
-                // if (psk) {
-                //     channelData.psk = psk;
-                // } else {
-                //     // Fill in default PSK when empty
-                //     channelData.psk = "AQ==";
-                // }
-                
+
                 // Include boolean flags if they're true
                 if (uplinkEnabled) {
                     channelData.uplink_enabled = true;
@@ -1963,11 +2110,7 @@
                 if (downlinkEnabled) {
                     channelData.downlink_enabled = true;
                 }
-                
-                if (mute) {
-                    channelData.mute = true;
-                }
-                
+
                 channels.push(channelData);
             }
             
@@ -2037,12 +2180,19 @@
                 return;
             }
             
+            const qrEmbed = collectQrEmbed('channel');
+            if (qrEmbed === undefined) {
+                return;
+            }
+
             const requestData = {
                 channels: channels,
                 lora_config: loraConfig,
-                channel_action: channelAction
+                channel_action: channelAction,
+                qr_embed: qrEmbed,
+                qr_scale: collectQrScale('channel')
             };
-            
+
             // Show loading state
             encodeLoading.style.display = 'block';
             encodeResult.style.display = 'none';
@@ -2105,14 +2255,8 @@
         async function encodeNodeInfo() {
             const nodeNumValue = nodeNumInput.value.trim();
             const userIdRaw = nodeUserIdInput.value;
-            const snrRaw = nodeSnrInput.value;
-            const lastHeardRaw = nodeLastHeardInput.value;
-            const channelRaw = nodeChannelInput.value;
-            const viaMqttChecked = nodeViaMqttInput.checked;
-            const isFavoriteChecked = nodeIsFavoriteInput.checked;
             const isIgnoredChecked = nodeIsIgnoredInput.checked;
             const isKeyManuallyVerifiedChecked = nodeIsKeyManuallyVerifiedInput.checked;
-            const hopsAwayRaw = nodeHopsAwayInput.value;
             const hwModelRaw = nodeHwModelInput.value;
             const longNameRaw = nodeLongNameInput.value;
             const shortNameRaw = nodeShortNameInput.value;
@@ -2145,45 +2289,11 @@
                 nodeData.num = nodeNum;
             }
 
-            if (snrRaw.trim()) {
-                const snrValue = Number.parseFloat(snrRaw);
-                if (!Number.isNaN(snrValue)) {
-                    nodeData.snr = snrValue;
-                }
-            }
-
-            if (lastHeardRaw.trim()) {
-                const lastHeardValue = Number.parseInt(lastHeardRaw, 10);
-                if (!Number.isNaN(lastHeardValue)) {
-                    nodeData.last_heard = lastHeardValue;
-                }
-            }
-
-            if (channelRaw.trim()) {
-                const channelValue = Number.parseInt(channelRaw, 10);
-                if (!Number.isNaN(channelValue)) {
-                    nodeData.channel = channelValue;
-                }
-            }
-
-            if (viaMqttChecked) {
-                nodeData.via_mqtt = true;
-            }
-            if (isFavoriteChecked) {
-                nodeData.is_favorite = true;
-            }
             if (isIgnoredChecked) {
                 nodeData.is_ignored = true;
             }
             if (isKeyManuallyVerifiedChecked) {
                 nodeData.is_key_manually_verified = true;
-            }
-
-            if (hopsAwayRaw.trim()) {
-                const hopsAwayValue = Number.parseInt(hopsAwayRaw, 10);
-                if (!Number.isNaN(hopsAwayValue)) {
-                    nodeData.hops_away = hopsAwayValue;
-                }
             }
 
             const userData = {};
@@ -2218,6 +2328,11 @@
                 nodeData.user = userData;
             }
 
+            const qrEmbed = collectQrEmbed('contact');
+            if (qrEmbed === undefined) {
+                return;
+            }
+
             nodeinfoLoading.style.display = 'block';
             nodeinfoResult.style.display = 'none';
             encodeNodeinfoBtn.disabled = true;
@@ -2228,7 +2343,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ node: nodeData })
+                    body: JSON.stringify({ node: nodeData, qr_embed: qrEmbed, qr_scale: collectQrScale('contact') })
                 });
 
                 const data = await response.json();
@@ -2270,9 +2385,15 @@
                 html += '<div class="result-json">';
                 html += '<strong>QR Code:</strong>';
                 html += '<div style="text-align: center; margin: 15px 0;">';
-                html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; max-width: 300px; height: auto;" />`;
+                html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; width: 100%; max-width: ${qrDisplayWidth(data.qr_code)}px; height: auto;" />`;
                 html += '</div>';
                 html += `<button class="copy-button" onclick="downloadQRCode('${data.qr_code.image_base64}', 'meshtastic-channel.png')">💾 Download QR Code</button>`;
+                if (data.qr_code.error_correction === 'H') {
+                    html += `<div style="font-size: 12px; color: #7f8c8d; margin-top: 6px;">Error correction H, ${data.qr_code.modules}&times;${data.qr_code.modules} modules &mdash; denser than usual because the centre is reserved. Scan-test before printing.</div>`;
+                }
+                if (data.qr_code.size) {
+                    html += `<div style="font-size: 12px; color: #7f8c8d; margin-top: 4px;">Image ${data.qr_code.size[0]}&times;${data.qr_code.size[1]}px at ${data.qr_code.scale}x. Download for the full resolution.</div>`;
+                }
                 html += '</div>';
             }
             
@@ -2352,9 +2473,15 @@
                 html += '<div class="result-json">';
                 html += '<strong>QR Code:</strong>';
                 html += '<div style="text-align: center; margin: 15px 0;">';
-                html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; max-width: 300px; height: auto;" />`;
+                html += `<img src="data:${data.qr_code.mime_type};base64,${data.qr_code.image_base64}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 6px; width: 100%; max-width: ${qrDisplayWidth(data.qr_code)}px; height: auto;" />`;
                 html += '</div>';
                 html += `<button class="copy-button" onclick="downloadQRCode('${data.qr_code.image_base64}', 'meshtastic-nodeinfo.png')">💾 Download QR Code</button>`;
+                if (data.qr_code.error_correction === 'H') {
+                    html += `<div style="font-size: 12px; color: #7f8c8d; margin-top: 6px;">Error correction H, ${data.qr_code.modules}&times;${data.qr_code.modules} modules &mdash; denser than usual because the centre is reserved. Scan-test before printing.</div>`;
+                }
+                if (data.qr_code.size) {
+                    html += `<div style="font-size: 12px; color: #7f8c8d; margin-top: 4px;">Image ${data.qr_code.size[0]}&times;${data.qr_code.size[1]}px at ${data.qr_code.scale}x. Download for the full resolution.</div>`;
+                }
                 html += '</div>';
             }
 
@@ -2404,6 +2531,8 @@
         }
         
         function clearEncodeForm() {
+            resetQrEmbedControls('channel');
+
             // Reset number of channels to 1
             numChannelsSelect.value = '1';
             generateChannelForms(1);
@@ -2450,18 +2579,13 @@
         }
 
         function clearNodeInfoForm() {
+            resetQrEmbedControls('contact');
             nodeNumInput.value = '';
             nodeUserIdInput.value = '';
             nodeNumInput.dataset.autofilled = 'false';
             nodeUserIdInput.dataset.autofilled = 'false';
-            nodeSnrInput.value = '';
-            nodeLastHeardInput.value = '';
-            nodeChannelInput.value = '';
-            nodeViaMqttInput.checked = false;
-            nodeIsFavoriteInput.checked = false;
             nodeIsIgnoredInput.checked = false;
             nodeIsKeyManuallyVerifiedInput.checked = false;
-            nodeHopsAwayInput.value = '';
             nodeHwModelInput.value = '';
             nodeLongNameInput.value = '';
             nodeShortNameInput.value = '';
@@ -2475,21 +2599,22 @@
         }
 
         function populateNodeInfoFields(nodeData, userData) {
-            if (nodeData && nodeData.num !== undefined && nodeData.num !== null) {
-                nodeNumInput.value = String(nodeData.num);
+            // Accept both SharedContact names and the NodeInfo names older decodes produce.
+            const nodeNum = nodeData && (nodeData.node_num !== undefined ? nodeData.node_num : nodeData.num);
+            if (nodeNum !== undefined && nodeNum !== null) {
+                nodeNumInput.value = String(nodeNum);
             }
 
             if (nodeData) {
-                if (nodeData.snr !== undefined) nodeSnrInput.value = String(nodeData.snr);
-                if (nodeData.last_heard !== undefined) nodeLastHeardInput.value = String(nodeData.last_heard);
-                if (nodeData.channel !== undefined) nodeChannelInput.value = String(nodeData.channel);
-                if (nodeData.via_mqtt !== undefined) nodeViaMqttInput.checked = Boolean(nodeData.via_mqtt);
-                if (nodeData.is_favorite !== undefined) nodeIsFavoriteInput.checked = Boolean(nodeData.is_favorite);
-                if (nodeData.is_ignored !== undefined) nodeIsIgnoredInput.checked = Boolean(nodeData.is_ignored);
-                if (nodeData.is_key_manually_verified !== undefined) {
-                    nodeIsKeyManuallyVerifiedInput.checked = Boolean(nodeData.is_key_manually_verified);
+                const shouldIgnore = nodeData.should_ignore !== undefined ? nodeData.should_ignore : nodeData.is_ignored;
+                if (shouldIgnore !== undefined) nodeIsIgnoredInput.checked = Boolean(shouldIgnore);
+
+                const manuallyVerified = nodeData.manually_verified !== undefined
+                    ? nodeData.manually_verified
+                    : nodeData.is_key_manually_verified;
+                if (manuallyVerified !== undefined) {
+                    nodeIsKeyManuallyVerifiedInput.checked = Boolean(manuallyVerified);
                 }
-                if (nodeData.hops_away !== undefined) nodeHopsAwayInput.value = String(nodeData.hops_away);
             }
 
             if (userData) {
@@ -2542,6 +2667,41 @@
             });
         }
 
+        function appendMissingEnumOptions(selectEl, enumValues) {
+            if (!selectEl || !Array.isArray(enumValues)) {
+                return;
+            }
+
+            // Keep the hand-written friendly labels, append whatever the protobuf adds
+            const existing = new Set(Array.from(selectEl.options).map(option => option.value));
+            enumValues.forEach(name => {
+                if (existing.has(name)) {
+                    return;
+                }
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                selectEl.appendChild(option);
+            });
+        }
+
+        async function initLoRaEnums() {
+            try {
+                const response = await fetch('/lora_enums');
+                const data = await response.json();
+                if (!data.success) {
+                    return;
+                }
+
+                ['lora-preset', 'modem-preset'].forEach(id =>
+                    appendMissingEnumOptions(document.getElementById(id), data.modem_preset));
+                ['preset-region', 'region'].forEach(id =>
+                    appendMissingEnumOptions(document.getElementById(id), data.region));
+            } catch (error) {
+                console.error('Failed to load LoRa enums:', error);
+            }
+        }
+
         async function initNodeInfoEnums() {
             try {
                 const response = await fetch('/nodeinfo_enums');
@@ -2591,26 +2751,33 @@
                     setActiveEncodeSubtab('encode-channels-tab');
                 }
                 
+                const sharedContact = decodedData.SharedContact || null;
                 const nodeInfo = decodedData.Node || null;
                 const userInfo = decodedData.User || null;
                 const myNodeInfo = decodedData.MyNodeInfo || null;
                 const config = decodedData.Config || decodedData;
                 console.log('Loading config:', config);
-                
+
                 // Add a small delay to ensure tab switching is complete
                 setTimeout(() => {
-                    if (nodeInfo || userInfo || myNodeInfo) {
+                    if (sharedContact || nodeInfo || userInfo || myNodeInfo) {
                         setActiveEncodeSubtab('encode-nodeinfo-tab');
                         clearNodeInfoForm();
 
-                        const nodeData = nodeInfo || myNodeInfo || {};
-                        const userData = (nodeInfo && nodeInfo.user) || (myNodeInfo && myNodeInfo.user) || userInfo || null;
+                        const nodeData = sharedContact || nodeInfo || myNodeInfo || {};
+                        const userData = nodeData.user || userInfo || null;
                         populateNodeInfoFields(nodeData, userData);
                         return;
                     }
 
                     setActiveEncodeSubtab('encode-channels-tab');
                     clearEncodeForm();
+
+                    // Keep the action the URL was built with, so an add URL is not reloaded as a replace.
+                    if (channelActionSelect && decodedData.channel_action) {
+                        channelActionSelect.value = decodedData.channel_action;
+                        syncLoraCheckboxWithChannelAction();
+                    }
 
                     // Handle different data structures
                     const configChannels = config.channels || config.settings;
@@ -2756,14 +2923,18 @@
             }
             
             // Load PSK (keep as base64 format)
-            if (channelSettings.psk) {
-                const pskField = document.getElementById(`channel-${channelIndex}-psk`);
-                if (pskField) {
-                    // Display PSK in base64 format as received
-                    pskField.value = channelSettings.psk;
-                }
+            const pskField = document.getElementById(`channel-${channelIndex}-psk`);
+            if (pskField) {
+                // Display PSK in base64 format as received; absent means unencrypted
+                pskField.value = channelSettings.psk || '';
             }
-            
+
+            const defaultKeyField = document.getElementById(`channel-${channelIndex}-default-key`);
+            if (defaultKeyField) {
+                defaultKeyField.checked = isDefaultKeyPsk(channelSettings.psk);
+            }
+
+
             // Load position precision using new controls
             // Note: protobuf MessageToDict may omit position_precision if it's 0 (default value)
             const positionEnabled = document.getElementById(`channel-${channelIndex}-position-enabled`);
@@ -2826,15 +2997,6 @@
                 }
             }
             
-            // Load client muted from module_settings
-            if (channelSettings.module_settings && channelSettings.module_settings.is_client_muted !== undefined) {
-                const clientMutedField = document.getElementById(`channel-${channelIndex}-client-muted`);
-                if (clientMutedField) {
-                    clientMutedField.checked = channelSettings.module_settings.is_client_muted;
-                    console.log(`Set client muted to ${channelSettings.module_settings.is_client_muted} for channel ${channelIndex}`);
-                }
-            }
-            
             // Load uplink enabled
             if (channelSettings.uplink_enabled !== undefined) {
                 const uplinkField = document.getElementById(`channel-${channelIndex}-uplink`);
@@ -2853,13 +3015,11 @@
                 }
             }
             
-            // Load mute flag
-            if (channelSettings.mute !== undefined) {
-                const muteField = document.getElementById(`channel-${channelIndex}-mute`);
-                if (muteField) {
-                    muteField.checked = channelSettings.mute;
-                    console.log(`Set mute to ${channelSettings.mute} for channel ${channelIndex}`);
-                }
+            // Load mute flag, which the protobuf keeps in module_settings
+            const muteField = document.getElementById(`channel-${channelIndex}-mute`);
+            if (muteField) {
+                const moduleSettings = channelSettings.module_settings || {};
+                muteField.checked = Boolean(moduleSettings.is_muted);
             }
             
             // Set channel role if needed (update the hidden field)
@@ -3084,6 +3244,9 @@
         window.addEventListener('load', () => {
             urlInput.focus();
             initNodeInfoEnums();
+            initLoRaEnums();
+            initQrEmbedControls('channel');
+            initQrEmbedControls('contact');
         });
     </script>
     <footer style="margin: 24px 0 16px; text-align: center; color: #6b7280; font-size: 14px;">
