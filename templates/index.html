@@ -1829,6 +1829,22 @@
             return value === DEFAULT_KEY_PSK || value.toLowerCase() === '0x01';
         }
 
+        // Clients treat a PSK of one byte or less as low entropy, so precise location
+        // on such a channel is broadcast in the clear.
+        function refreshPreciseLocationWarning(index) {
+            const warning = document.getElementById(`channel-${index}-precise-warning`);
+            const psk = document.getElementById(`channel-${index}-psk`);
+            const positionEnabled = document.getElementById(`channel-${index}-position-enabled`);
+            const precise = document.getElementById(`channel-${index}-precise-location`);
+            if (!warning || !psk || !positionEnabled || !precise) {
+                return;
+            }
+
+            const lowEntropy = isDefaultKeyPsk(psk.value) || !psk.value.trim();
+            const show = lowEntropy && positionEnabled.checked && precise.checked;
+            warning.style.display = show ? 'block' : 'none';
+        }
+
         function generateChannelForms(numChannels) {
             channelsContainer.innerHTML = '';
             
@@ -1879,7 +1895,8 @@
                             <input type="checkbox" id="channel-${i}-precise-location" checked /> Precise Location
                         </label>
                         <small style="color: #7f8c8d; font-size: 12px;">Full precision (32 bits, ~0.5cm accuracy). Uncheck for approximate location.</small>
-                        
+                        <small id="channel-${i}-precise-warning" style="display: none; color: #c0392b; font-size: 12px;">⚠️ Precise location on a default-key channel is readable by anyone. Clients flag this combination as insecure.</small>
+
                         <div id="channel-${i}-approximate-settings" style="display: none; margin-top: 10px;">
                             <label for="channel-${i}-precision-slider">Approximate Location Precision:</label>
                             <div style="margin: 10px 0;">
@@ -1933,10 +1950,12 @@
                     } else if (isDefaultKeyPsk(pskInput.value)) {
                         pskInput.value = '';
                     }
+                    refreshPreciseLocationWarning(i);
                 });
 
                 pskInput.addEventListener('input', function() {
                     defaultKeyCheckbox.checked = isDefaultKeyPsk(this.value);
+                    refreshPreciseLocationWarning(i);
                 });
 
                 // Add event listeners for position controls
@@ -1950,11 +1969,13 @@
                 // Toggle position settings visibility
                 positionEnabled.addEventListener('change', function() {
                     positionSettings.style.display = this.checked ? 'block' : 'none';
+                    refreshPreciseLocationWarning(i);
                 });
                 
                 // Toggle between precise and approximate
                 preciseLocation.addEventListener('change', function() {
                     approximateSettings.style.display = this.checked ? 'none' : 'block';
+                    refreshPreciseLocationWarning(i);
                 });
                 
                 // Update precision display when slider changes

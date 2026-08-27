@@ -9,7 +9,7 @@ A comprehensive Python Flask application for encoding, decoding, and managing Me
 - **Add or Replace Mode**: Generate `add` URLs (`?add=true`) or `replace` URLs
 - **LoRa Settings Control**: `replace` requires LoRa config; `add` never carries it
 - **LoRa Settings**: Configure bandwidth, spread factor, coding rate, and regional settings
-- **Position Precision**: Set location sharing precision (1-32 bits) for privacy control
+- **Position Precision**: Off, approximate (10-19 bits), or precise (32 bits)
 - **PSK Management**: Hex or base64 keys, a Default Key tick box, or empty for unencrypted
 - **Preset & Manual Modes**: Choose from standard LoRa presets or configure manually
 
@@ -130,7 +130,7 @@ python decode.py --help
 - **Pre-Shared Keys (PSK)**: Hex (0x...) or Base64 format. Leave empty for an unencrypted
   channel, or tick **Default Key** for the standard `AQ==` key every stock node ships with
 - **Channel Roles**: Primary, Secondary, or Disabled
-- **Position Precision**: 1-32 bits (privacy control)
+- **Position Precision**: 0 (off), 10-19 (approximate), or 32 (precise) — the only values the official clients produce, and the only ones the API accepts
 - **Module Settings**: Position precision and per-channel mute
 
 ### LoRa Configuration
@@ -295,11 +295,16 @@ This makes it easy to:
 - Legacy `Config.settings` is still accepted when loading older data
 
 ### 🎯 Position Privacy Control
-- **32-bit precision**: ~0.5 cm accuracy (maximum)
-- **24-bit precision**: ~1.2 m accuracy (high)
-- **16-bit precision**: ~305 m accuracy (medium)
-- **8-bit precision**: ~78 km accuracy (low privacy impact)
-- **Lower bits**: Increasingly private but less precise
+
+`position_precision` is not a free 1-32 range. The official clients only ever emit:
+
+- **0** — position sharing off
+- **10-19** — approximate, roughly 19 km down to 37 m; 13 is the default
+- **32** — precise, full resolution
+
+Anything else is rejected. Note that a channel whose PSK is one byte or less (the default
+key, or no key) is treated as low entropy, so pairing it with precise location broadcasts
+an exact position readable by anyone — clients flag that combination as insecure.
 
 ## Security Considerations
 

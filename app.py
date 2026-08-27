@@ -30,6 +30,12 @@ app = Flask(__name__)
 # ChannelSettings.name is capped at 12 bytes including the null terminator
 MAX_CHANNEL_NAME_BYTES = 11
 
+# Position precision the official clients actually produce: disabled, the 10-19
+# approximate range, or 32 for precise. Nothing else is reachable in their UI.
+POSITION_PRECISION_DISABLED = 0
+POSITION_PRECISION_PRECISE = 32
+ALLOWED_POSITION_PRECISION = {POSITION_PRECISION_DISABLED, POSITION_PRECISION_PRECISE} | set(range(10, 20))
+
 # Centre-embed limits: above ~0.30 the code stops scanning even at error correction H
 MIN_EMBED_RATIO = 0.10
 MAX_EMBED_RATIO = 0.30
@@ -460,7 +466,13 @@ class MeshtasticEncoder:
                     ms = channel_data['module_settings']
 
                     if 'position_precision' in ms and ms['position_precision'] is not None:
-                        module_settings.position_precision = int(ms['position_precision'])
+                        precision = int(ms['position_precision'])
+                        if precision not in ALLOWED_POSITION_PRECISION:
+                            raise ValueError(
+                                f'Position precision {precision} is not one of '
+                                f'{sorted(ALLOWED_POSITION_PRECISION)}'
+                            )
+                        module_settings.position_precision = precision
                     else:
                         # Default: position enabled with full precision
                         module_settings.position_precision = 32
