@@ -1,0 +1,49 @@
+# murltools.html is a build artifact, generated from templates/index.html and
+# tools/all_in_one/ — but it is committed, because the point of it is to be
+# downloadable and openable on its own.
+#
+# That combination drifts silently: edit the template, forget to rebuild, and
+# the Flask UI and the single page quietly disagree until someone hits a bug in
+# one but not the other. This rebuilds and fails if the committed copy is stale.
+
+name: Single-file build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check-bundle:
+    name: murltools.html is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The build only imports meshtastic.protobuf; the heavier runtime deps
+      # (opencv, pyzbar, Pillow) are not needed to generate the page.
+      - name: Install build dependency
+        run: pip install --quiet meshtastic
+
+      - name: Rebuild the single-file page
+        run: python tools/build_all_in_one.py
+
+      - name: Fail if the committed copy is stale
+        run: |
+          if ! git diff --quiet -- murltools.html; then
+            echo "::error file=murltools.html::murltools.html does not match a fresh build."
+            echo ""
+            echo "templates/index.html or tools/all_in_one/ changed without rebuilding."
+            echo "Run this and commit the result:"
+            echo ""
+            echo "    python tools/build_all_in_one.py"
+            echo ""
+            echo "Diff against a fresh build:"
+            git --no-pager diff --stat -- murltools.html
+            exit 1
+          fi
+          echo "murltools.html matches a fresh build."
